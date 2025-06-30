@@ -1,0 +1,2 @@
+- Use English for code comments and documentation.
+- Use `@` symbol for import aliases.

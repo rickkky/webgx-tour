@@ -1,13 +1,16 @@
-# Logs
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+node_modules
+.pnp*
+
+# logs
 logs
 *.log
 npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-# Editor directories and files
+# editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -18,8 +21,14 @@ lerna-debug.log*
 *.sln
 *.sw?
 
-node_modules
+# testing
+coverage
+
+# production
 dist
 dist-ssr
+build
+
+# other
 *.local
 .turbo
