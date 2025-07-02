@@ -13,9 +13,9 @@ void main() {
   // with x pointing right and y pointing down.
   // The clip space origin is the center of the canvas,
   // with x pointing right and y pointing up, range [-1, 1].
-  vec2 positionClip = (a_position / u_resolution * 2.0 - 1.0) * vec2(1, -1);
+  vec2 clip = (a_position / u_resolution * 2.0 - 1.0) * vec2(1, -1);
 
-  gl_Position = vec4(positionClip, 0, 1);
+  gl_Position = vec4(clip, 0, 1);
 
   v_color = a_color;
 }

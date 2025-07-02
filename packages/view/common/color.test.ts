@@ -1,0 +1,69 @@
+import { describe, test, expect } from 'vitest';
+import { kolor } from './color';
+
+describe('create Color instance', () => {
+  test('hex', () => {
+    const color = kolor('#800000').rgba();
+    expect(color.r).toBe(128);
+    expect(color.g).toBe(0);
+    expect(color.b).toBe(0);
+    expect(color.a).toBe(1);
+  });
+
+  test('hex with alpha', () => {
+    const color = kolor('#80000080').rgba();
+    expect(color.r).toBe(128);
+    expect(color.g).toBe(0);
+    expect(color.b).toBe(0);
+    expect(color.a).toBe(128 / 255);
+  });
+
+  test('rgb', () => {
+    const color = kolor('rgb(128, 0, 0)').rgba();
+    expect(color.r).toBe(128);
+    expect(color.g).toBe(0);
+    expect(color.b).toBe(0);
+    expect(color.a).toBe(1);
+  });
+
+  test('rgba', () => {
+    const color = kolor('rgba(128, 0, 0, 0.5)').rgba();
+    expect(color.r).toBe(128);
+    expect(color.g).toBe(0);
+    expect(color.b).toBe(0);
+    expect(color.a).toBe(0.5);
+  });
+
+  test('rgb object', () => {
+    const color = kolor({ r: 128, g: 0, b: 0 }).rgba();
+    expect(color.r).toBe(128);
+    expect(color.g).toBe(0);
+    expect(color.b).toBe(0);
+    expect(color.a).toBe(1);
+  });
+
+  test('rgba object', () => {
+    const color = kolor({ r: 128, g: 0, b: 0, a: 0.5 }).rgba();
+    expect(color.r).toBe(128);
+    expect(color.g).toBe(0);
+    expect(color.b).toBe(0);
+    expect(color.a).toBe(0.5);
+  });
+});
+
+describe('getter', () => {
+  test('rgbaArray', () => {
+    const color = kolor('#80000080');
+    expect(color.rgbaArray()).toEqual([128, 0, 0, 128 / 255]);
+  });
+
+  test('rgbaByteArray', () => {
+    const color = kolor('#80000080');
+    expect(color.rgbaByteArray()).toEqual([128, 0, 0, 128]);
+  });
+
+  test('rgbaFloatArray', () => {
+    const color = kolor('#80000080');
+    expect(color.rgbaFloatArray()).toEqual([128 / 255, 0, 0, 128 / 255]);
+  });
+});

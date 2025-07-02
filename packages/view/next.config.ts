@@ -5,6 +5,7 @@ const nextConfig: NextConfig = {
     rules: {
       '*.glsl': {
         loaders: ['raw-loader'],
+        as: '*.js',
       },
     },
   },

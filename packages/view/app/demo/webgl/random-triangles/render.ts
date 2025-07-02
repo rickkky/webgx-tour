@@ -1,16 +1,15 @@
 import type { WebGLInitRenderProps } from '@/components/canvas/WebGLCanvas';
 import { createProgram } from '@/common/webgl';
-import kolor from '@/common/color';
 import vertexShader from './vertex.glsl';
 import fragmentShader from './fragment.glsl';
 import initState from './state';
 
 // prettier-ignore
-function triangle(width: number, height: number) {
+function triangles(count: number, width: number, height: number) {
   return [
-    width * 1 / 10, height * 9 / 10,
-    width * 9 / 10, height * 9 / 10,
-    width * 5 / 10, height * 1 / 10,
+    width * 4 / 10, height * 6 / 10,
+    width * 6 / 10, height * 6/ 10,
+    width * 5 / 10, height * 4 / 10,
   ]
 }
 
@@ -49,14 +48,23 @@ function initRender({ context, canvas }: WebGLInitRenderProps) {
     context.bindBuffer(context.ARRAY_BUFFER, colorBuf);
     context.bufferData(
       context.ARRAY_BUFFER,
-      new Uint8Array([
-        ...kolor(state.color0).rgbaByteArray(),
-        ...kolor(state.color1).rgbaByteArray(),
-        ...kolor(state.color2).rgbaByteArray(),
+      new Float32Array([
+        state.color0.r,
+        state.color0.g,
+        state.color0.b,
+        state.color0.a,
+        state.color1.r,
+        state.color1.g,
+        state.color1.b,
+        state.color1.a,
+        state.color2.r,
+        state.color2.g,
+        state.color2.b,
+        state.color2.a,
       ]),
       context.STATIC_DRAW,
     );
-    context.vertexAttribPointer(colorLoc, 4, context.UNSIGNED_BYTE, true, 0, 0);
+    context.vertexAttribPointer(colorLoc, 4, context.FLOAT, false, 0, 0);
 
     context.uniform2f(resolutionLoc, canvas.width, canvas.height);
 
