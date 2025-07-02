@@ -52,6 +52,11 @@ describe('create Color instance', () => {
 });
 
 describe('getter', () => {
+  test('rgba', () => {
+    const color = kolor('#80000080');
+    expect(color.rgba()).toEqual({ r: 128, g: 0, b: 0, a: 128 / 255 });
+  });
+
   test('rgbaArray', () => {
     const color = kolor('#80000080');
     expect(color.rgbaArray()).toEqual([128, 0, 0, 128 / 255]);
@@ -65,5 +70,30 @@ describe('getter', () => {
   test('rgbaFloatArray', () => {
     const color = kolor('#80000080');
     expect(color.rgbaFloatArray()).toEqual([128 / 255, 0, 0, 128 / 255]);
+  });
+});
+
+describe('static method', () => {
+  test('kolor.random', () => {
+    const color = kolor.random().rgba();
+    expect(color.r).toBeGreaterThanOrEqual(0);
+    expect(color.r).toBeLessThanOrEqual(255);
+    expect(color.g).toBeGreaterThanOrEqual(0);
+    expect(color.g).toBeLessThanOrEqual(255);
+    expect(color.b).toBeGreaterThanOrEqual(0);
+    expect(color.b).toBeLessThanOrEqual(255);
+    expect(color.a).toBe(1);
+  });
+
+  test('kolor.random with alpha', () => {
+    const color = kolor.random(true).rgba();
+    expect(color.r).toBeGreaterThanOrEqual(0);
+    expect(color.r).toBeLessThanOrEqual(255);
+    expect(color.g).toBeGreaterThanOrEqual(0);
+    expect(color.g).toBeLessThanOrEqual(255);
+    expect(color.b).toBeGreaterThanOrEqual(0);
+    expect(color.b).toBeLessThanOrEqual(255);
+    expect(color.a).toBeGreaterThanOrEqual(0);
+    expect(color.a).toBeLessThanOrEqual(1);
   });
 });

@@ -1,3 +1,5 @@
+import { random } from './math';
+
 export type ColorLike =
   | string
   | { r: number; g: number; b: number; a?: number };
@@ -78,4 +80,11 @@ export function kolor(
   return new Color(colorStr);
 }
 
-export default kolor;
+kolor.random = function (alpha?: boolean): Color {
+  return new Color({
+    r: Math.floor(random(0, 255)),
+    g: Math.floor(random(0, 255)),
+    b: Math.floor(random(0, 255)),
+    a: alpha ? random(0, 1) : 1,
+  });
+};

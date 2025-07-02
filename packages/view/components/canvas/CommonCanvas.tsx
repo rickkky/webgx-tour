@@ -10,7 +10,10 @@ import {
 
 export interface InitRenderProps {
   canvas: HTMLCanvasElement;
-  onResize: (callback: (event: CanvasResizeEvent) => void) => void;
+  onResize: (
+    callback: (event: CanvasResizeEvent) => void,
+    immediate?: boolean,
+  ) => () => boolean;
 }
 
 export type InitRenderReturn = (() => void) | Promise<() => void>;
@@ -32,9 +35,24 @@ const CommonCanvas: React.FC<CommonCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const onResizeInner = useRef<(event: CanvasResizeEvent) => void>(null);
-  const setOnResizeInner = (callback?: (event: CanvasResizeEvent) => void) => {
-    onResizeInner.current = callback || null;
+  const resizeCbsRef = useRef<((event: CanvasResizeEvent) => void)[]>([]);
+  const listenResize = (
+    callback: (event: CanvasResizeEvent) => void,
+    immediate = true,
+  ) => {
+    resizeCbsRef.current.push(callback);
+    if (immediate) {
+      const canvas = canvasRef.current!;
+      callback({ canvas, width: canvas.width, height: canvas.height });
+    }
+    return () => {
+      const index = resizeCbsRef.current.indexOf(callback);
+      if (index >= 0) {
+        resizeCbsRef.current.splice(index, 1);
+        return true;
+      }
+      return false;
+    };
   };
 
   useEffect(
@@ -44,8 +62,8 @@ const CommonCanvas: React.FC<CommonCanvasProps> = ({
       resizeCanvasToDisplaySize(canvas);
 
       const observer = observeCanvasResize(canvas, (event) => {
-        onResizeInner.current?.(event);
         onResize?.(event);
+        resizeCbsRef.current.forEach((cb) => cb(event));
       });
 
       return () => {
@@ -76,7 +94,7 @@ const CommonCanvas: React.FC<CommonCanvasProps> = ({
       if (initRender) {
         const render = await initRender({
           canvas: canvasRef.current!,
-          onResize: setOnResizeInner,
+          onResize: listenResize,
         });
         if (ignore) {
           return;

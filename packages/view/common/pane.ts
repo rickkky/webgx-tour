@@ -5,26 +5,32 @@ import type { Pane } from 'tweakpane';
  * @param pane - Tweakpane instance.
  */
 export function monitorFPS(pane: Pane): void {
-  const folder = pane.addFolder({
-    title: 'FPS',
-    expanded: true,
+  const state = { frameTime: 0, fps: 0 };
+
+  const tab = pane.addTab({
+    pages: [{ title: 'FPS' }, { title: 'Frame Time' }],
   });
 
-  const state = { value: 0 };
-
-  folder.addBinding(state, 'value', {
-    label: 'FPS',
+  tab.pages[0].addBinding(state, 'fps', {
+    label: 'fps',
     view: 'graph',
-    interval: 128,
     readonly: true,
+    interval: 128,
+  });
+
+  tab.pages[1].addBinding(state, 'frameTime', {
+    label: 'frame time',
+    view: 'graph',
+    readonly: true,
+    interval: 128,
   });
 
   let prev = performance.now();
 
   function update() {
     const now = performance.now();
-    const delta = now - prev;
-    state.value = Math.round(1000 / delta);
+    state.frameTime = now - prev;
+    state.fps = Math.round(1000 / state.frameTime);
     prev = now;
     requestAnimationFrame(update);
   }
