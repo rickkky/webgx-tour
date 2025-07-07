@@ -5,18 +5,18 @@ export type ColorLike =
   | { r: number; g: number; b: number; a?: number };
 
 export class Color {
-  r: number;
-  g: number;
-  b: number;
-  a: number;
+  private _r: number;
+  private _g: number;
+  private _b: number;
+  private _a: number;
 
   constructor(input: ColorLike) {
     // Handle object input
     if (typeof input === 'object') {
-      this.r = input.r;
-      this.g = input.g;
-      this.b = input.b;
-      this.a = input.a ?? 1;
+      this._r = input.r;
+      this._g = input.g;
+      this._b = input.b;
+      this._a = input.a ?? 1;
       return;
     }
 
@@ -25,20 +25,20 @@ export class Color {
       /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})?$/i,
     );
     if (hexMatch) {
-      this.r = parseInt(hexMatch[1], 16);
-      this.g = parseInt(hexMatch[2], 16);
-      this.b = parseInt(hexMatch[3], 16);
-      this.a = hexMatch[4] ? parseInt(hexMatch[4], 16) / 255 : 1;
+      this._r = parseInt(hexMatch[1], 16);
+      this._g = parseInt(hexMatch[2], 16);
+      this._b = parseInt(hexMatch[3], 16);
+      this._a = hexMatch[4] ? parseInt(hexMatch[4], 16) / 255 : 1;
       return;
     }
 
     // Parse rgb format like rgb(255, 0, 0)
     const rgbMatch = input.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/i);
     if (rgbMatch) {
-      this.r = parseInt(rgbMatch[1]);
-      this.g = parseInt(rgbMatch[2]);
-      this.b = parseInt(rgbMatch[3]);
-      this.a = 1;
+      this._r = parseInt(rgbMatch[1]);
+      this._g = parseInt(rgbMatch[2]);
+      this._b = parseInt(rgbMatch[3]);
+      this._a = 1;
       return;
     }
 
@@ -47,29 +47,59 @@ export class Color {
       /^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)$/i,
     );
     if (rgbaMatch) {
-      this.r = parseInt(rgbaMatch[1]);
-      this.g = parseInt(rgbaMatch[2]);
-      this.b = parseInt(rgbaMatch[3]);
-      this.a = parseFloat(rgbaMatch[4]);
+      this._r = parseInt(rgbaMatch[1]);
+      this._g = parseInt(rgbaMatch[2]);
+      this._b = parseInt(rgbaMatch[3]);
+      this._a = parseFloat(rgbaMatch[4]);
       return;
     }
 
     throw new Error(`Invalid color format: ${input}`);
   }
 
-  rgba(): { r: number; g: number; b: number; a: number } {
-    return { r: this.r, g: this.g, b: this.b, a: this.a };
+  r() {
+    return this._r;
   }
 
-  rgbaArray(): [number, number, number, number] {
+  g() {
+    return this._g;
+  }
+
+  b() {
+    return this._b;
+  }
+
+  a() {
+    return this._a;
+  }
+
+  rgba(): ColorRGBA {
+    return new ColorRGBA(this);
+  }
+}
+
+export class ColorRGBA {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+
+  constructor(color: Color) {
+    this.r = color.r();
+    this.g = color.g();
+    this.b = color.b();
+    this.a = color.a();
+  }
+
+  array(): [number, number, number, number] {
     return [this.r, this.g, this.b, this.a];
   }
 
-  rgbaByteArray(): [number, number, number, number] {
+  byteArray(): [number, number, number, number] {
     return [this.r, this.g, this.b, Math.round(this.a * 255)];
   }
 
-  rgbaFloatArray(): [number, number, number, number] {
+  floatArray(): [number, number, number, number] {
     return [this.r / 255, this.g / 255, this.b / 255, this.a];
   }
 }

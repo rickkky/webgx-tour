@@ -1,5 +1,6 @@
 import { Pane } from 'tweakpane';
 import type { WebGLInitRenderProps } from '@/components/canvas/WebGLCanvas';
+import { proxyState } from '@/common/state';
 import { random } from '@/common/math';
 import { kolor } from '@/common/color';
 import { monitorFPS } from '@/common/pane';
@@ -14,45 +15,53 @@ function triangle(width: number, height: number) {
 }
 
 export function initState({ canvas, onResize }: WebGLInitRenderProps) {
-  const state = {
+  const state = proxyState({
+    width: canvas.width,
+    height: canvas.height,
     count: 10,
-    positions: [] as number[],
-    scalings: [] as number[],
-    offsets: [] as number[],
-    colors: [] as number[],
-  };
-
-  const updatePositions = (width: number, height: number) => {
-    state.positions = Array(state.count)
-      .fill(0)
-      .flatMap(() => triangle(width, height));
-  };
-
-  onResize(({ width, height }) => {
-    updatePositions(width, height);
+    positions: new Float32Array([]),
+    scalings: new Float32Array([]),
+    offsets: new Float32Array([]),
+    colors: new Uint8Array([]),
   });
 
-  const updateInput = () => {
-    updatePositions(canvas.width, canvas.height);
-    state.scalings = Array(state.count)
-      .fill(0)
-      .flatMap(() => Array(3).fill(random(0.5, 2)));
-    state.offsets = Array(state.count)
-      .fill(0)
-      .flatMap(() => {
-        return Array(3)
-          .fill([
-            random(-(canvas.width * 2) / 10, (canvas.width * 2) / 10),
-            random(-(canvas.height * 2) / 10, (canvas.height * 2) / 10),
-          ])
-          .flat();
-      });
-    state.colors = Array(state.count * 3)
-      .fill(0)
-      .flatMap(() => kolor.random().rgbaByteArray());
-  };
+  onResize(({ width, height }) => {
+    state.width = width;
+    state.height = height;
+  });
 
-  updateInput();
+  state.$on(['width', 'height', 'count'], () => {
+    state.positions = new Float32Array(
+      Array(state.count)
+        .fill(0)
+        .flatMap(() => triangle(state.width, state.height)),
+    );
+  });
+
+  state.$on('count', () => {
+    state.scalings = new Float32Array(
+      Array(state.count)
+        .fill(0)
+        .flatMap(() => Array(3).fill(random(0.5, 2))),
+    );
+    state.offsets = new Float32Array(
+      Array(state.count)
+        .fill(0)
+        .flatMap(() => {
+          return Array(3)
+            .fill([
+              random(-(canvas.width * 4) / 10, (canvas.width * 4) / 10),
+              random(-(canvas.height * 4) / 10, (canvas.height * 4) / 10),
+            ])
+            .flat();
+        }),
+    );
+    state.colors = new Uint8Array(
+      Array(state.count * 3)
+        .fill(0)
+        .flatMap(() => kolor.random().rgba().byteArray()),
+    );
+  });
 
   const pane = new Pane({ title: 'Pane' });
 
@@ -65,11 +74,6 @@ export function initState({ canvas, onResize }: WebGLInitRenderProps) {
     min: 1,
     max: 100,
     step: 1,
-  });
-
-  folder.on('change', () => {
-    console.log(state);
-    updateInput();
   });
 
   monitorFPS(pane);

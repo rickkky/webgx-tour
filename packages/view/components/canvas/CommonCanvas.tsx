@@ -8,12 +8,11 @@ import {
   observeCanvasResize,
 } from '@/common/resize';
 
+export type ResizeCallback = (event: CanvasResizeEvent) => void;
+
 export interface InitRenderProps {
   canvas: HTMLCanvasElement;
-  onResize: (
-    callback: (event: CanvasResizeEvent) => void,
-    immediate?: boolean,
-  ) => () => boolean;
+  onResize: (callback: ResizeCallback, immediate?: boolean) => () => void;
 }
 
 export type InitRenderReturn = (() => void) | Promise<() => void>;
@@ -23,7 +22,7 @@ export interface CommonCanvasProps {
   className?: string;
   style?: React.CSSProperties;
   children?: React.ReactNode;
-  onResize?: (event: CanvasResizeEvent) => void;
+  onResize?: ResizeCallback;
 }
 
 const CommonCanvas: React.FC<CommonCanvasProps> = ({
@@ -35,23 +34,18 @@ const CommonCanvas: React.FC<CommonCanvasProps> = ({
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const resizeCbsRef = useRef<((event: CanvasResizeEvent) => void)[]>([]);
+  const resizeCbsRef = useRef<Set<ResizeCallback>>(new Set());
   const listenResize = (
     callback: (event: CanvasResizeEvent) => void,
     immediate = true,
   ) => {
-    resizeCbsRef.current.push(callback);
+    resizeCbsRef.current.add(callback);
     if (immediate) {
       const canvas = canvasRef.current!;
       callback({ canvas, width: canvas.width, height: canvas.height });
     }
     return () => {
-      const index = resizeCbsRef.current.indexOf(callback);
-      if (index >= 0) {
-        resizeCbsRef.current.splice(index, 1);
-        return true;
-      }
-      return false;
+      resizeCbsRef.current?.delete(callback);
     };
   };
 

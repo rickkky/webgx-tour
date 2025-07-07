@@ -57,19 +57,19 @@ describe('getter', () => {
     expect(color.rgba()).toEqual({ r: 128, g: 0, b: 0, a: 128 / 255 });
   });
 
-  test('rgbaArray', () => {
+  test('rgba array', () => {
     const color = kolor('#80000080');
-    expect(color.rgbaArray()).toEqual([128, 0, 0, 128 / 255]);
+    expect(color.rgba().array()).toEqual([128, 0, 0, 128 / 255]);
   });
 
-  test('rgbaByteArray', () => {
+  test('rgba byte array', () => {
     const color = kolor('#80000080');
-    expect(color.rgbaByteArray()).toEqual([128, 0, 0, 128]);
+    expect(color.rgba().byteArray()).toEqual([128, 0, 0, 128]);
   });
 
-  test('rgbaFloatArray', () => {
+  test('rgba float array', () => {
     const color = kolor('#80000080');
-    expect(color.rgbaFloatArray()).toEqual([128 / 255, 0, 0, 128 / 255]);
+    expect(color.rgba().floatArray()).toEqual([128 / 255, 0, 0, 128 / 255]);
   });
 });
 

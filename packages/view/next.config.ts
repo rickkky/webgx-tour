@@ -7,6 +7,10 @@ const nextConfig: NextConfig = {
         loaders: ['raw-loader'],
         as: '*.js',
       },
+      '*.wgsl': {
+        loaders: ['raw-loader'],
+        as: '*.js',
+      },
     },
   },
 };

@@ -1,54 +1,59 @@
 type WatchCallback<T> = (value: T) => void;
-type UnwatchFn = () => void;
 
-interface WatchOptions {
-  immediate?: boolean;
-}
+export type StateProxy<T extends object> = T & {
+  $on: (
+    keys: keyof T | (keyof T)[],
+    callback: WatchCallback<T>,
+    immediate?: boolean,
+  ) => void;
+  $off: (keys: keyof T | (keyof T)[], callback: WatchCallback<T>) => void;
+};
 
-export function watchState<T extends object>(state: T) {
-  const watchers = new Map<string, Set<WatchCallback<T[keyof T]>>>();
+export function proxyState<T extends object>(state: T): StateProxy<T> {
+  const watchers = new Map<keyof T, Set<WatchCallback<T>>>();
 
-  const proxy = new Proxy(state, {
-    set(target, property: string, value) {
-      target[property as keyof T] = value;
+  const proxy: StateProxy<T> = new Proxy(state, {
+    set(target, key: string, value) {
+      Reflect.set(target, key, value);
 
-      const propertyWatchers = watchers.get(property);
-      if (propertyWatchers) {
-        propertyWatchers.forEach((cb) => cb(value));
+      if (!key.startsWith('$')) {
+        watchers.get(key as keyof T)?.forEach((cb) => cb({ ...state }));
       }
 
       return true;
     },
-  });
+  }) as StateProxy<T>;
 
-  function watch<K extends keyof T>(
-    properties: K[],
-    callback: WatchCallback<T[K]>,
-    options?: WatchOptions,
-  ): UnwatchFn {
-    if (options?.immediate) {
-      properties.forEach((prop) => {
-        callback(proxy[prop]);
-      });
+  proxy.$on = (
+    keys: keyof T | (keyof T)[],
+    callback: WatchCallback<T>,
+    immediate = true,
+  ) => {
+    if (immediate) {
+      callback({ ...state });
     }
 
-    properties.forEach((property) => {
-      if (!watchers.has(property as string)) {
-        watchers.set(property as string, new Set());
+    if (!Array.isArray(keys)) {
+      keys = [keys];
+    }
+
+    keys.forEach((key) => {
+      if (!watchers.has(key)) {
+        watchers.set(key, new Set());
       }
-      watchers
-        .get(property as string)
-        ?.add(callback as WatchCallback<T[keyof T]>);
+      watchers.get(key)?.add(callback as WatchCallback<T>);
     });
+  };
 
-    return () => {
-      properties.forEach((property) => {
-        watchers
-          .get(property as string)
-          ?.delete(callback as WatchCallback<T[keyof T]>);
-      });
-    };
-  }
+  proxy.$off = (keys: keyof T | (keyof T)[], callback: WatchCallback<T>) => {
+    if (!Array.isArray(keys)) {
+      keys = [keys];
+    }
 
-  return watch;
+    keys.forEach((key) => {
+      watchers.get(key)?.delete(callback as WatchCallback<T>);
+    });
+  };
+
+  return proxy;
 }

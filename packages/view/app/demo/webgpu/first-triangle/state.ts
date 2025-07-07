@@ -1,5 +1,5 @@
 import { Pane } from 'tweakpane';
-import type { WebGLInitRenderProps } from '@/components/canvas/WebGLCanvas';
+import type { InitRenderProps } from '@/components/canvas/CommonCanvas';
 import { proxyState } from '@/common/state';
 import { kolor } from '@/common/color';
 import { monitorFPS as monitorFrame } from '@/common/pane';
@@ -13,13 +13,13 @@ function triangle(width: number, height: number) {
   ]
 }
 
-export function initState({ onResize }: WebGLInitRenderProps) {
+export function initState({ onResize }: InitRenderProps) {
   const state = proxyState({
     positions: new Float32Array([]),
     color1: '#80000080',
     color2: '#00800080',
     color3: '#00008080',
-    colors: new Uint8Array([]),
+    colors: new Float32Array([]),
   });
 
   onResize(({ width, height }) => {
@@ -27,7 +27,7 @@ export function initState({ onResize }: WebGLInitRenderProps) {
   });
 
   state.$on(['color1', 'color2', 'color3'], () => {
-    state.colors = new Uint8Array([
+    state.colors = new Float32Array([
       ...kolor(state.color1).rgba().byteArray(),
       ...kolor(state.color2).rgba().byteArray(),
       ...kolor(state.color3).rgba().byteArray(),
