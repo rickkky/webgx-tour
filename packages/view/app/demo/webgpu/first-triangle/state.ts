@@ -16,9 +16,9 @@ function triangle(width: number, height: number) {
 export function initState({ onResize }: InitRenderProps) {
   const state = proxyState({
     positions: new Float32Array([]),
-    color1: '#80000080',
-    color2: '#00800080',
-    color3: '#00008080',
+    color1: '#ff000080',
+    color2: '#00ff0080',
+    color3: '#0000ff80',
     colors: new Float32Array([]),
   });
 
@@ -28,9 +28,9 @@ export function initState({ onResize }: InitRenderProps) {
 
   state.$on(['color1', 'color2', 'color3'], () => {
     state.colors = new Float32Array([
-      ...kolor(state.color1).rgba().byteArray(),
-      ...kolor(state.color2).rgba().byteArray(),
-      ...kolor(state.color3).rgba().byteArray(),
+      ...kolor(state.color1).rgba8u().array(),
+      ...kolor(state.color2).rgba8u().array(),
+      ...kolor(state.color3).rgba8u().array(),
     ]);
   });
 

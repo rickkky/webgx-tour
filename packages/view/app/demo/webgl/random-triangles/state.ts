@@ -59,7 +59,7 @@ export function initState({ canvas, onResize }: WebGLInitRenderProps) {
     state.colors = new Uint8Array(
       Array(state.count * 3)
         .fill(0)
-        .flatMap(() => kolor.random().rgba().byteArray()),
+        .flatMap(() => kolor.random().rgba8u().array()),
     );
   });
 

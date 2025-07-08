@@ -74,7 +74,15 @@ export class Color {
   }
 
   rgba(): ColorRGBA {
-    return new ColorRGBA(this);
+    return new ColorRGBA(this._r, this._g, this._b, this._a);
+  }
+
+  rgba8u(): ColorRGBA {
+    return new ColorRGBA(this._r, this._g, this._b, Math.round(this._a * 255));
+  }
+
+  rgbanorm(): ColorRGBA {
+    return new ColorRGBA(this._r / 255, this._g / 255, this._b / 255, this._a);
   }
 }
 
@@ -84,23 +92,15 @@ export class ColorRGBA {
   b: number;
   a: number;
 
-  constructor(color: Color) {
-    this.r = color.r();
-    this.g = color.g();
-    this.b = color.b();
-    this.a = color.a();
+  constructor(r: number, g: number, b: number, a: number) {
+    this.r = r;
+    this.g = g;
+    this.b = b;
+    this.a = a;
   }
 
   array(): [number, number, number, number] {
     return [this.r, this.g, this.b, this.a];
-  }
-
-  byteArray(): [number, number, number, number] {
-    return [this.r, this.g, this.b, Math.round(this.a * 255)];
-  }
-
-  floatArray(): [number, number, number, number] {
-    return [this.r / 255, this.g / 255, this.b / 255, this.a];
   }
 }
 

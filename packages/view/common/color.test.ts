@@ -64,12 +64,12 @@ describe('getter', () => {
 
   test('rgba byte array', () => {
     const color = kolor('#80000080');
-    expect(color.rgba().byteArray()).toEqual([128, 0, 0, 128]);
+    expect(color.rgba8u().array()).toEqual([128, 0, 0, 128]);
   });
 
   test('rgba float array', () => {
     const color = kolor('#80000080');
-    expect(color.rgba().floatArray()).toEqual([128 / 255, 0, 0, 128 / 255]);
+    expect(color.rgbanorm().array()).toEqual([128 / 255, 0, 0, 128 / 255]);
   });
 });
 

@@ -28,9 +28,9 @@ export function initState({ onResize }: WebGLInitRenderProps) {
 
   state.$on(['color1', 'color2', 'color3'], () => {
     state.colors = new Uint8Array([
-      ...kolor(state.color1).rgba().byteArray(),
-      ...kolor(state.color2).rgba().byteArray(),
-      ...kolor(state.color3).rgba().byteArray(),
+      ...kolor(state.color1).rgba8u().array(),
+      ...kolor(state.color2).rgba8u().array(),
+      ...kolor(state.color3).rgba8u().array(),
     ]);
   });
 
