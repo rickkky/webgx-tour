@@ -1,15 +1,10 @@
 'use client';
 
-import CanvasLayout from '@/components/canvas/CanvasLayout';
-import WebGLCanvas from '@/components/canvas/WebGLCanvas';
-import initRender from './render';
+import LayoutCanvas from '@/components/canvas/LayoutCanvas';
+import Renderer from './render';
 
-const RandomTrianglesPage = () => {
-  return (
-    <CanvasLayout>
-      <WebGLCanvas initRender={initRender} />
-    </CanvasLayout>
-  );
+const Page = () => {
+  return <LayoutCanvas Renderer={Renderer}></LayoutCanvas>;
 };
 
-export default RandomTrianglesPage;
+export default Page;

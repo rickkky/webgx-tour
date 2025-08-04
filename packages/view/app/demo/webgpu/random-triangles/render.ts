@@ -1,5 +1,6 @@
 import { WebGPURenderer } from '@/common/renderer';
 import { signal, computed, effect } from '@/common/signal';
+import { random } from '@/common/math';
 import { kolor } from '@/common/color';
 import { bindSignal } from '@/common/pane';
 import shaderSource from './shader.wgsl';
@@ -7,44 +8,59 @@ import shaderSource from './shader.wgsl';
 function triangle(width: number, height: number) {
   // prettier-ignore
   return [
-    width * 1 / 10, height * 9 / 10,
-    width * 9 / 10, height * 9 / 10,
-    width * 5 / 10, height * 1 / 10,
+    -width * 1 / 10,  height * 1 / 10,
+     width * 1 / 10,  height * 1 / 10,
+     width * 0 / 10, -height * 1 / 10,
   ]
 }
 
 class Renderer extends WebGPURenderer {
+  count = signal(10);
+  countMax = 100;
+  countMin = 1;
+
   positions = computed(
     () => new Float32Array(triangle(this.width(), this.height())),
   );
-
-  color1 = signal('#ff000080');
-  color2 = signal('#00ff0080');
-  color3 = signal('#0000ff80');
-  colors = computed(
+  scalings = computed(
     () =>
-      new Float32Array([
-        ...kolor(this.color1()).rgbanorm().array(),
-        ...kolor(this.color2()).rgbanorm().array(),
-        ...kolor(this.color3()).rgbanorm().array(),
-      ]),
+      new Float32Array(
+        Array(this.count())
+          .fill(0)
+          .map(() => random(0.5, 2)),
+      ),
+  );
+  offsets = computed(
+    () =>
+      new Float32Array(
+        Array(this.count())
+          .fill(0)
+          .flatMap(() => [
+            random(-(this.width() * 3) / 10, (this.width() * 3) / 10),
+            random(-(this.height() * 3) / 10, (this.height() * 3) / 10),
+          ]),
+      ),
   );
 
-  resolutions = computed(() => new Float32Array([this.width(), this.height()]));
+  colors = computed(
+    () =>
+      new Float32Array(
+        Array(this.count() * 3)
+          .fill(0)
+          .flatMap(() => kolor.random(0.5).rgbanorm().array()),
+      ),
+  );
 
   initPane() {
     const folder = this.pane!.addFolder({
       title: 'State',
     });
 
-    bindSignal(folder, this.color1, {
-      label: 'color 1',
-    });
-    bindSignal(folder, this.color2, {
-      label: 'color 2',
-    });
-    bindSignal(folder, this.color3, {
-      label: 'color 3',
+    bindSignal(folder, this.count, {
+      label: 'count',
+      min: this.countMin,
+      max: this.countMax,
+      step: 1,
     });
   }
 
@@ -107,7 +123,7 @@ class Renderer extends WebGPURenderer {
     });
 
     const positionBuf = device.createBuffer({
-      label: 'vertex buffer',
+      label: 'position buffer',
       size: this.positions().byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
@@ -115,9 +131,27 @@ class Renderer extends WebGPURenderer {
       device.queue.writeBuffer(positionBuf, 0, this.positions());
     });
 
+    const scalingBuf = device.createBuffer({
+      label: 'scaling buffer',
+      size: this.countMax * Float32Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    effect(() => {
+      device.queue.writeBuffer(scalingBuf, 0, this.scalings());
+    });
+
+    const offsetBuf = device.createBuffer({
+      label: 'offset buffer',
+      size: this.countMax * 2 * Float32Array.BYTES_PER_ELEMENT,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    effect(() => {
+      device.queue.writeBuffer(offsetBuf, 0, this.offsets());
+    });
+
     const colorBuf = device.createBuffer({
       label: 'color buffer',
-      size: this.colors().byteLength,
+      size: this.countMax * 3 * 4 * Float32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     effect(() => {
@@ -142,11 +176,23 @@ class Renderer extends WebGPURenderer {
         {
           binding: 0,
           resource: {
-            buffer: colorBuf,
+            buffer: scalingBuf,
           },
         },
         {
           binding: 1,
+          resource: {
+            buffer: offsetBuf,
+          },
+        },
+        {
+          binding: 2,
+          resource: {
+            buffer: colorBuf,
+          },
+        },
+        {
+          binding: 3,
           resource: {
             buffer: resolutionBuf,
           },
@@ -173,7 +219,7 @@ class Renderer extends WebGPURenderer {
       pass.setPipeline(pipeline);
       pass.setVertexBuffer(0, positionBuf);
       pass.setBindGroup(0, bindGroup);
-      pass.draw(3);
+      pass.draw(3, this.count());
       pass.end();
 
       const commandBuffer = encoder.finish();

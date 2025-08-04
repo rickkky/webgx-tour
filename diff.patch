@@ -1,0 +1,2579 @@
+diff --git a/packages/view/app/demo/layout.tsx b/packages/view/app/demo/layout.tsx
+index dcf7d20..7993856 100644
+--- a/packages/view/app/demo/layout.tsx
++++ b/packages/view/app/demo/layout.tsx
+@@ -3,5 +3,9 @@ export default function RootLayout({
+ }: Readonly<{
+   children: React.ReactNode;
+ }>) {
+-  return <div className='absolute inset-0 w-full h-full'>{children}</div>;
++  return (
++    <div className='absolute overflow-hidden inset-0 w-full h-full'>
++      {children}
++    </div>
++  );
+ }
+diff --git a/packages/view/app/demo/webgl/first-triangle/fragment.glsl b/packages/view/app/demo/webgl/first-triangle/fragment.glsl
+index f651bd0..dc236bc 100644
+--- a/packages/view/app/demo/webgl/first-triangle/fragment.glsl
++++ b/packages/view/app/demo/webgl/first-triangle/fragment.glsl
+@@ -4,8 +4,8 @@ precision highp float;
+
+ in vec4 v_color;
+
+-out vec4 outColor;
++out vec4 color;
+
+ void main() {
+-  outColor = v_color;
++  color = v_color;
+ }
+diff --git a/packages/view/app/demo/webgl/first-triangle/page.tsx b/packages/view/app/demo/webgl/first-triangle/page.tsx
+index d93003e..957d90b 100644
+--- a/packages/view/app/demo/webgl/first-triangle/page.tsx
++++ b/packages/view/app/demo/webgl/first-triangle/page.tsx
+@@ -1,15 +1,10 @@
+ 'use client';
+
+-import CanvasLayout from '@/components/canvas/CanvasLayout';
+-import WebGLCanvas from '@/components/canvas/WebGLCanvas';
+-import initRender from './render';
++import LayoutCanvas from '@/components/canvas/LayoutCanvas';
++import Renderer from './render';
+
+-const FirstTrianglePage = () => {
+-  return (
+-    <CanvasLayout>
+-      <WebGLCanvas initRender={initRender} />
+-    </CanvasLayout>
+-  );
++const Page = () => {
++  return <LayoutCanvas Renderer={Renderer}></LayoutCanvas>;
+ };
+
+-export default FirstTrianglePage;
++export default Page;
+diff --git a/packages/view/app/demo/webgl/first-triangle/render.ts b/packages/view/app/demo/webgl/first-triangle/render.ts
+index f835ec9..8688662 100644
+--- a/packages/view/app/demo/webgl/first-triangle/render.ts
++++ b/packages/view/app/demo/webgl/first-triangle/render.ts
+@@ -1,56 +1,115 @@
+-import type { WebGLInitRenderProps } from '@/components/canvas/WebGLCanvas';
++import { WebGLRenderer } from '@/common/renderer';
++import { signal, computed, effect } from '@/common/signal';
++import { kolor } from '@/common/color';
++import { bindSignal } from '@/common/pane';
+ import { createProgram } from '@/common/webgl';
+ import vertexSource from './vertex.glsl';
+ import fragmentSource from './fragment.glsl';
+-import initState from './state';
+
+-function initRender(props: WebGLInitRenderProps) {
+-  const { context, onResize } = props;
++function triangle(width: number, height: number) {
++  // prettier-ignore
++  return [
++    width * 1 / 10, height * 9 / 10,
++    width * 9 / 10, height * 9 / 10,
++    width * 5 / 10, height * 1 / 10,
++  ]
++}
++
++class Renderer extends WebGLRenderer {
++  positions = computed(
++    () => new Float32Array(triangle(this.width(), this.height())),
++  );
++
++  color1 = signal('#ff000080');
++  color2 = signal('#00ff0080');
++  color3 = signal('#0000ff80');
++  colors = computed(
++    () =>
++      new Float32Array([
++        ...kolor(this.color1()).rgbanorm().array(),
++        ...kolor(this.color2()).rgbanorm().array(),
++        ...kolor(this.color3()).rgbanorm().array(),
++      ]),
++  );
++
++  initPane() {
++    const folder = this.pane!.addFolder({
++      title: 'State',
++    });
++
++    bindSignal(folder, this.color1, {
++      label: 'color 1',
++    });
++    bindSignal(folder, this.color2, {
++      label: 'color 2',
++    });
++    bindSignal(folder, this.color3, {
++      label: 'color 3',
++    });
++  }
+
+-  const state = initState(props);
++  initRender() {
++    const context = this.context;
+
+-  const program = createProgram(context, vertexSource, fragmentSource);
+-  context.useProgram(program);
++    const program = createProgram(context, vertexSource, fragmentSource);
++    context.useProgram(program);
+
+-  const positionLoc = context.getAttribLocation(program, 'a_position');
+-  const positionBuf = context.createBuffer();
+-  state.$on('positions', (state) => {
++    const vao = context.createVertexArray();
++    context.bindVertexArray(vao);
++
++    const positionBuf = context.createBuffer();
++    effect(() => {
++      context.bindBuffer(context.ARRAY_BUFFER, positionBuf);
++      context.bufferData(
++        context.ARRAY_BUFFER,
++        this.positions(),
++        context.STATIC_DRAW,
++      );
++    });
++    const positionLoc = context.getAttribLocation(program, 'a_position');
+     context.enableVertexAttribArray(positionLoc);
+-    context.bindBuffer(context.ARRAY_BUFFER, positionBuf);
+-    context.bufferData(
+-      context.ARRAY_BUFFER,
+-      state.positions,
+-      context.STATIC_DRAW,
+-    );
+     // It implicitly binds the current `ARRAY_BUFFER` to the attribute.
+     context.vertexAttribPointer(positionLoc, 2, context.FLOAT, false, 0, 0);
+-  });
+
+-  const colorLoc = context.getAttribLocation(program, 'a_color');
+-  const colorBuf = context.createBuffer();
+-  state.$on('colors', (state) => {
++    const colorBuf = context.createBuffer();
++    effect(() => {
++      context.bindBuffer(context.ARRAY_BUFFER, colorBuf);
++      context.bufferData(
++        context.ARRAY_BUFFER,
++        this.colors(),
++        context.STATIC_DRAW,
++      );
++    });
++    const colorLoc = context.getAttribLocation(program, 'a_color');
+     context.enableVertexAttribArray(colorLoc);
+-    context.bindBuffer(context.ARRAY_BUFFER, colorBuf);
+-    context.bufferData(context.ARRAY_BUFFER, state.colors, context.STATIC_DRAW);
+-    context.vertexAttribPointer(colorLoc, 4, context.UNSIGNED_BYTE, true, 0, 0);
+-  });
++    // It implicitly binds the current `ARRAY_BUFFER` to the attribute.
++    context.vertexAttribPointer(colorLoc, 4, context.FLOAT, false, 0, 0);
+
+-  const resolutionLoc = context.getUniformLocation(program, 'u_resolution');
++    context.bindVertexArray(null);
+
+-  onResize(({ width, height }) => {
+-    context.viewport(0, 0, width, height);
++    const resolutionLoc = context.getUniformLocation(program, 'u_resolution');
++    effect(() => {
++      context.viewport(0, 0, this.width(), this.height());
+
+-    context.uniform2f(resolutionLoc, width, height);
+-  });
++      context.uniform2f(resolutionLoc, this.width(), this.height());
++    });
+
+-  const render = () => {
+-    context.clearColor(0, 0, 0, 0);
+-    context.clear(context.COLOR_BUFFER_BIT);
++    context.enable(context.BLEND);
++    context.blendFuncSeparate(
++      context.SRC_ALPHA,
++      context.ONE_MINUS_SRC_ALPHA,
++      context.ONE,
++      context.ONE_MINUS_SRC_ALPHA,
++    );
+
+-    context.drawArrays(context.TRIANGLES, 0, 3);
+-  };
++    return () => {
++      context.clearColor(0, 0, 0, 0);
++      context.clear(context.COLOR_BUFFER_BIT);
+
+-  return render;
++      context.bindVertexArray(vao);
++      context.drawArrays(context.TRIANGLES, 0, 3);
++    };
++  }
+ }
+
+-export default initRender;
++export default Renderer;
+diff --git a/packages/view/app/demo/webgl/first-triangle/state.ts b/packages/view/app/demo/webgl/first-triangle/state.ts
+deleted file mode 100644
+index 8218bfe..0000000
+--- a/packages/view/app/demo/webgl/first-triangle/state.ts
++++ /dev/null
+@@ -1,58 +0,0 @@
+-import { Pane } from 'tweakpane';
+-import type { WebGLInitRenderProps } from '@/components/canvas/WebGLCanvas';
+-import { proxyState } from '@/common/state';
+-import { kolor } from '@/common/color';
+-import { monitorFPS as monitorFrame } from '@/common/pane';
+-
+-function triangle(width: number, height: number) {
+-  // prettier-ignore
+-  return [
+-    width * 1 / 10, height * 9 / 10,
+-    width * 9 / 10, height * 9 / 10,
+-    width * 5 / 10, height * 1 / 10,
+-  ]
+-}
+-
+-export function initState({ onResize }: WebGLInitRenderProps) {
+-  const state = proxyState({
+-    positions: new Float32Array([]),
+-    color1: '#80000080',
+-    color2: '#00800080',
+-    color3: '#00008080',
+-    colors: new Uint8Array([]),
+-  });
+-
+-  onResize(({ width, height }) => {
+-    state.positions = new Float32Array(triangle(width, height));
+-  });
+-
+-  state.$on(['color1', 'color2', 'color3'], () => {
+-    state.colors = new Uint8Array([
+-      ...kolor(state.color1).rgba8u().array(),
+-      ...kolor(state.color2).rgba8u().array(),
+-      ...kolor(state.color3).rgba8u().array(),
+-    ]);
+-  });
+-
+-  const pane = new Pane({ title: 'Pane' });
+-
+-  const folder = pane.addFolder({
+-    title: 'State',
+-  });
+-
+-  folder.addBinding(state, 'color1', {
+-    label: 'color 1',
+-  });
+-  folder.addBinding(state, 'color2', {
+-    label: 'color 2',
+-  });
+-  folder.addBinding(state, 'color3', {
+-    label: 'color 3',
+-  });
+-
+-  monitorFrame(pane);
+-
+-  return state;
+-}
+-
+-export default initState;
+diff --git a/packages/view/app/demo/webgl/first-triangle/vertex.glsl b/packages/view/app/demo/webgl/first-triangle/vertex.glsl
+index befdad7..abbe9e6 100644
+--- a/packages/view/app/demo/webgl/first-triangle/vertex.glsl
++++ b/packages/view/app/demo/webgl/first-triangle/vertex.glsl
+@@ -14,7 +14,6 @@ void main() {
+   // The clip space origin is the center of the canvas,
+   // with x pointing right and y pointing up, range [-1, 1].
+   vec2 clip = (a_position / u_resolution * 2.0 - 1.0) * vec2(1, -1);
+-
+   gl_Position = vec4(clip, 0, 1);
+
+   v_color = a_color;
+diff --git a/packages/view/app/demo/webgl/image-processing/data.ts b/packages/view/app/demo/webgl/image-processing/data.ts
+new file mode 100644
+index 0000000..de00027
+--- /dev/null
++++ b/packages/view/app/demo/webgl/image-processing/data.ts
+@@ -0,0 +1,103 @@
++// prettier-ignore
++export const kernels = {
++  normal: [
++    0, 0, 0,
++    0, 1, 0,
++    0, 0, 0,
++  ],
++  gaussianBlur: [
++    0.045, 0.122, 0.045,
++    0.122, 0.332, 0.122,
++    0.045, 0.122, 0.045,
++  ],
++  gaussianBlur2: [
++    1, 2, 1,
++    2, 4, 2,
++    1, 2, 1,
++  ],
++  gaussianBlur3: [
++    0, 1, 0,
++    1, 1, 1,
++    0, 1, 0,
++  ],
++  unsharpen: [
++    -1, -1, -1,
++    -1,  9, -1,
++    -1, -1, -1,
++  ],
++  sharpness: [
++     0, -1,  0,
++    -1,  5, -1,
++     0, -1,  0,
++  ],
++  sharpen: [
++    -1, -1,  -1,
++    -1,  16, -1,
++    -1, -1,  -1,
++  ],
++  edgeDetect: [
++    -0.125, -0.125, -0.125,
++    -0.125,  1,     -0.125,
++    -0.125, -0.125, -0.125,
++  ],
++  edgeDetect2: [
++    -1, -1, -1,
++    -1,  8, -1,
++    -1, -1, -1,
++  ],
++  edgeDetect3: [
++    -5, 0, 0,
++     0, 0, 0,
++     0, 0, 5,
++  ],
++  edgeDetect4: [
++    -1, -1, -1,
++     0,  0,  0,
++     1,  1,  1,
++  ],
++  edgeDetect5: [
++    -1, -1, -1,
++     2,  2,  2,
++    -1, -1, -1,
++  ],
++  edgeDetect6: [
++    -5, -5,  -5,
++    -5,  39, -5,
++    -5, -5,  -5,
++  ],
++  sobelHorizontal: [
++     1,  2,  1,
++     0,  0,  0,
++    -1, -2, -1,
++  ],
++  sobelVertical: [
++    1,  0, -1,
++    2,  0, -2,
++    1,  0, -1,
++  ],
++  previtHorizontal: [
++     1,  1,  1,
++     0,  0,  0,
++    -1, -1, -1,
++  ],
++  previtVertical: [
++    1,  0, -1,
++    1,  0, -1,
++    1,  0, -1,
++  ],
++  boxBlur: [
++    0.111, 0.111, 0.111,
++    0.111, 0.111, 0.111,
++    0.111, 0.111, 0.111,
++  ],
++  triangleBlur: [
++    0.0625, 0.125, 0.0625,
++    0.125,  0.25,  0.125,
++    0.0625, 0.125, 0.0625,
++  ],
++  emboss: [
++    -2, -1, 0,
++    -1,  1, 1,
++     0,  1, 2,
++  ],
++};
+diff --git a/packages/view/app/demo/webgl/image-processing/fragment.glsl b/packages/view/app/demo/webgl/image-processing/fragment.glsl
+new file mode 100644
+index 0000000..0d17601
+--- /dev/null
++++ b/packages/view/app/demo/webgl/image-processing/fragment.glsl
+@@ -0,0 +1,28 @@
++#version 300 es
++
++precision highp float;
++
++uniform sampler2D u_image;
++uniform float u_kernel[9];
++uniform float u_kernelWeight;
++
++in vec2 v_texCoord;
++
++out vec4 color;
++
++void main() {
++  vec2 onePixel = vec2(1) / vec2(textureSize(u_image, 0));
++
++  vec4 colorSum =
++    texture(u_image, v_texCoord + onePixel * vec2(-1, -1)) * u_kernel[0] +
++    texture(u_image, v_texCoord + onePixel * vec2( 0, -1)) * u_kernel[1] +
++    texture(u_image, v_texCoord + onePixel * vec2( 1, -1)) * u_kernel[2] +
++    texture(u_image, v_texCoord + onePixel * vec2(-1,  0)) * u_kernel[3] +
++    texture(u_image, v_texCoord + onePixel * vec2( 0,  0)) * u_kernel[4] +
++    texture(u_image, v_texCoord + onePixel * vec2( 1,  0)) * u_kernel[5] +
++    texture(u_image, v_texCoord + onePixel * vec2(-1,  1)) * u_kernel[6] +
++    texture(u_image, v_texCoord + onePixel * vec2( 0,  1)) * u_kernel[7] +
++    texture(u_image, v_texCoord + onePixel * vec2( 1,  1)) * u_kernel[8] ;
++
++  color = vec4((colorSum / u_kernelWeight).rgb, 1);
++}
+diff --git a/packages/view/app/demo/webgl/image-processing/page.tsx b/packages/view/app/demo/webgl/image-processing/page.tsx
+new file mode 100644
+index 0000000..957d90b
+--- /dev/null
++++ b/packages/view/app/demo/webgl/image-processing/page.tsx
+@@ -0,0 +1,10 @@
++'use client';
++
++import LayoutCanvas from '@/components/canvas/LayoutCanvas';
++import Renderer from './render';
++
++const Page = () => {
++  return <LayoutCanvas Renderer={Renderer}></LayoutCanvas>;
++};
++
++export default Page;
+diff --git a/packages/view/app/demo/webgl/image-processing/render.ts b/packages/view/app/demo/webgl/image-processing/render.ts
+new file mode 100644
+index 0000000..2134533
+--- /dev/null
++++ b/packages/view/app/demo/webgl/image-processing/render.ts
+@@ -0,0 +1,291 @@
++import { WebGLRenderer } from '@/common/renderer';
++import { signal } from '@/common/signal';
++import { bindSignal } from '@/common/pane';
++import { createProgram } from '@/common/webgl';
++import { kernels } from './data';
++import vertexSource from './vertex.glsl';
++import fragmentSource from './fragment.glsl';
++import imageSource from '@/assets/leaves.jpg';
++
++async function loadImage(
++  src: string | { src: string },
++): Promise<HTMLImageElement> {
++  const url = typeof src === 'string' ? src : src.src;
++  return new Promise((resolve, reject) => {
++    const img = new Image();
++    img.onload = () => resolve(img);
++    img.onerror = reject;
++    img.src = url;
++  });
++}
++
++class Renderer extends WebGLRenderer {
++  kernel1 = signal('normal');
++  kernel2 = signal('normal');
++  kernel3 = signal('normal');
++
++  initPane() {
++    const folder = this.pane!.addFolder({
++      title: 'State',
++    });
++
++    bindSignal(folder, this.kernel1, {
++      options: {
++        list: Object.keys(kernels),
++      },
++    });
++    bindSignal(folder, this.kernel2, {
++      options: {
++        list: Object.keys(kernels),
++      },
++    });
++    bindSignal(folder, this.kernel3, {
++      options: {
++        list: Object.keys(kernels),
++      },
++    });
++  }
++
++  initRender() {
++    // Load image
++    const imagePromise = loadImage(imageSource);
++
++    // Create program
++    const program = createProgram(this.context, vertexSource, fragmentSource);
++    this.context.useProgram(program);
++
++    // Set up vertex attributes
++    const vao = this.context.createVertexArray();
++    this.context.bindVertexArray(vao);
++
++    // Position attribute
++    const positionLocation = this.context.getAttribLocation(
++      program,
++      'a_position',
++    );
++    const positionBuffer = this.context.createBuffer();
++
++    // Texture coordinate attribute
++    const texCoordLocation = this.context.getAttribLocation(
++      program,
++      'a_texCoord',
++    );
++    const texCoordBuffer = this.context.createBuffer();
++
++    // Uniform locations
++    const resolutionLocation = this.context.getUniformLocation(
++      program,
++      'u_resolution',
++    );
++    const flipYLocation = this.context.getUniformLocation(program, 'u_flipY');
++    const imageLocation = this.context.getUniformLocation(program, 'u_image');
++    this.context.uniform1i(imageLocation, 0);
++
++    // Kernel uniforms
++    const kernelLocation = this.context.getUniformLocation(
++      program,
++      'u_kernel[0]',
++    );
++    const kernelWeightLocation = this.context.getUniformLocation(
++      program,
++      'u_kernelWeight',
++    );
++
++    // Textures and framebuffers
++    const textures: WebGLTexture[] = [];
++    const framebuffers: WebGLFramebuffer[] = [];
++    let originalTexture: WebGLTexture;
++
++    // Create and setup texture function
++    const createAndSetupTexture = () => {
++      const texture = this.context.createTexture();
++      this.context.bindTexture(this.context.TEXTURE_2D, texture);
++      this.context.texParameteri(
++        this.context.TEXTURE_2D,
++        this.context.TEXTURE_WRAP_S,
++        this.context.CLAMP_TO_EDGE,
++      );
++      this.context.texParameteri(
++        this.context.TEXTURE_2D,
++        this.context.TEXTURE_WRAP_T,
++        this.context.CLAMP_TO_EDGE,
++      );
++      this.context.texParameteri(
++        this.context.TEXTURE_2D,
++        this.context.TEXTURE_MIN_FILTER,
++        this.context.NEAREST,
++      );
++      this.context.texParameteri(
++        this.context.TEXTURE_2D,
++        this.context.TEXTURE_MAG_FILTER,
++        this.context.NEAREST,
++      );
++      return texture;
++    };
++
++    // Compute kernel weight function
++    const computeKernelWeight = (kernel: number[]) => {
++      const weight = kernel.reduce((sum, value) => sum + value, 0);
++      return weight <= 0 ? 1 : weight;
++    };
++
++    // Set framebuffer function
++    const setFrameBuffer = (
++      fbo: WebGLFramebuffer | null,
++      width: number,
++      height: number,
++    ) => {
++      this.context.bindFramebuffer(this.context.FRAMEBUFFER, fbo);
++      this.context.uniform2f(resolutionLocation, width, height);
++      this.context.viewport(0, 0, width, height);
++    };
++
++    // Draw with kernel function
++    const drawWithKernel = (name: string) => {
++      const kernel = kernels[name as keyof typeof kernels];
++      this.context.uniform1fv(kernelLocation, kernel);
++      this.context.uniform1f(kernelWeightLocation, computeKernelWeight(kernel));
++      this.context.drawArrays(this.context.TRIANGLES, 0, 6);
++    };
++
++    // Draw effects function
++    const drawEffects = (effects: string[], image: HTMLImageElement) => {
++      this.context.activeTexture(this.context.TEXTURE0 + 0);
++      this.context.bindTexture(this.context.TEXTURE_2D, originalTexture);
++      this.context.uniform1f(flipYLocation, 1);
++      let count = 0;
++      for (let i = 0; i < effects.length; i++) {
++        setFrameBuffer(framebuffers[count % 2], image.width, image.height);
++        drawWithKernel(effects[i]);
++        this.context.bindTexture(this.context.TEXTURE_2D, textures[count % 2]);
++        count += 1;
++      }
++      this.context.uniform1f(flipYLocation, -1);
++      setFrameBuffer(
++        null,
++        this.context.canvas.width,
++        this.context.canvas.height,
++      );
++      drawWithKernel('normal');
++    };
++
++    // Render function
++    return async () => {
++      // Wait for image to load
++      const image = await imagePromise;
++
++      // Set up position buffer data
++      const positions = [
++        0,
++        0,
++        image.width,
++        0,
++        0,
++        image.height,
++        0,
++        image.height,
++        image.width,
++        0,
++        image.width,
++        image.height,
++      ];
++      this.context.enableVertexAttribArray(positionLocation);
++      this.context.bindBuffer(this.context.ARRAY_BUFFER, positionBuffer);
++      this.context.bufferData(
++        this.context.ARRAY_BUFFER,
++        new Float32Array(positions),
++        this.context.STATIC_DRAW,
++      );
++      this.context.vertexAttribPointer(
++        positionLocation,
++        2,
++        this.context.FLOAT,
++        false,
++        0,
++        0,
++      );
++
++      // Set up texture coordinate buffer data
++      const texCoords = [0, 0, 1, 0, 0, 1, 0, 1, 1, 0, 1, 1];
++      this.context.enableVertexAttribArray(texCoordLocation);
++      this.context.bindBuffer(this.context.ARRAY_BUFFER, texCoordBuffer);
++      this.context.bufferData(
++        this.context.ARRAY_BUFFER,
++        new Float32Array(texCoords),
++        this.context.STATIC_DRAW,
++      );
++      this.context.vertexAttribPointer(
++        texCoordLocation,
++        2,
++        this.context.FLOAT,
++        false,
++        0,
++        0,
++      );
++
++      // Create original texture if not already created
++      if (!originalTexture) {
++        originalTexture = createAndSetupTexture();
++        this.context.texImage2D(
++          this.context.TEXTURE_2D,
++          0,
++          this.context.RGBA,
++          this.context.RGBA,
++          this.context.UNSIGNED_BYTE,
++          image,
++        );
++
++        // Create textures and framebuffers
++        for (let i = 0; i < 2; i++) {
++          const texture = createAndSetupTexture()!;
++          textures.push(texture);
++          this.context.texImage2D(
++            this.context.TEXTURE_2D,
++            0,
++            this.context.RGBA,
++            image.width,
++            image.height,
++            0,
++            this.context.RGBA,
++            this.context.UNSIGNED_BYTE,
++            null,
++          );
++
++          const fbo = this.context.createFramebuffer()!;
++          framebuffers.push(fbo);
++          this.context.bindFramebuffer(this.context.FRAMEBUFFER, fbo);
++
++          this.context.framebufferTexture2D(
++            this.context.FRAMEBUFFER,
++            this.context.COLOR_ATTACHMENT0,
++            this.context.TEXTURE_2D,
++            texture,
++            0,
++          );
++        }
++      }
++
++      // Set resolution uniform
++      this.context.uniform2f(
++        resolutionLocation,
++        this.context.canvas.width,
++        this.context.canvas.height,
++      );
++
++      // Clear canvas
++      this.context.viewport(
++        0,
++        0,
++        this.context.canvas.width,
++        this.context.canvas.height,
++      );
++      this.context.clearColor(0, 0, 0, 0);
++      this.context.clear(this.context.COLOR_BUFFER_BIT);
++
++      // Draw effects
++      drawEffects([this.kernel1(), this.kernel2(), this.kernel3()], image);
++    };
++  }
++}
++
++export default Renderer;
+diff --git a/packages/view/app/demo/webgl/image-processing/vertex.glsl b/packages/view/app/demo/webgl/image-processing/vertex.glsl
+new file mode 100644
+index 0000000..582265b
+--- /dev/null
++++ b/packages/view/app/demo/webgl/image-processing/vertex.glsl
+@@ -0,0 +1,17 @@
++#version 300 es
++
++in vec4 a_position;
++in vec2 a_texCoord;
++
++uniform vec2 u_resolution;
++
++uniform float u_flipY;
++
++out vec2 v_texCoord;
++
++void main() {
++  vec2 clip = (a_position / u_resolution * 2.0 - 1.0) * vec2(1, u_flipY);
++  gl_Position = vec4(clip, 0, 1);
++
++  v_texCoord = a_texCoord;
++}
+diff --git a/packages/view/app/demo/webgl/random-triangles/fragment.glsl b/packages/view/app/demo/webgl/random-triangles/fragment.glsl
+index f651bd0..dc236bc 100644
+--- a/packages/view/app/demo/webgl/random-triangles/fragment.glsl
++++ b/packages/view/app/demo/webgl/random-triangles/fragment.glsl
+@@ -4,8 +4,8 @@ precision highp float;
+
+ in vec4 v_color;
+
+-out vec4 outColor;
++out vec4 color;
+
+ void main() {
+-  outColor = v_color;
++  color = v_color;
+ }
+diff --git a/packages/view/app/demo/webgl/random-triangles/page.tsx b/packages/view/app/demo/webgl/random-triangles/page.tsx
+index beced07..957d90b 100644
+--- a/packages/view/app/demo/webgl/random-triangles/page.tsx
++++ b/packages/view/app/demo/webgl/random-triangles/page.tsx
+@@ -1,15 +1,10 @@
+ 'use client';
+
+-import CanvasLayout from '@/components/canvas/CanvasLayout';
+-import WebGLCanvas from '@/components/canvas/WebGLCanvas';
+-import initRender from './render';
++import LayoutCanvas from '@/components/canvas/LayoutCanvas';
++import Renderer from './render';
+
+-const RandomTrianglesPage = () => {
+-  return (
+-    <CanvasLayout>
+-      <WebGLCanvas initRender={initRender} />
+-    </CanvasLayout>
+-  );
++const Page = () => {
++  return <LayoutCanvas Renderer={Renderer}></LayoutCanvas>;
+ };
+
+-export default RandomTrianglesPage;
++export default Page;
+diff --git a/packages/view/app/demo/webgl/random-triangles/render.ts b/packages/view/app/demo/webgl/random-triangles/render.ts
+index b94bace..f8bb4e0 100644
+--- a/packages/view/app/demo/webgl/random-triangles/render.ts
++++ b/packages/view/app/demo/webgl/random-triangles/render.ts
+@@ -1,81 +1,200 @@
+-import type { WebGLInitRenderProps } from '@/components/canvas/WebGLCanvas';
++import { WebGLRenderer } from '@/common/renderer';
++import { signal, computed, effect } from '@/common/signal';
++import { random } from '@/common/math';
++import { kolor } from '@/common/color';
++import { bindSignal } from '@/common/pane';
+ import { createProgram } from '@/common/webgl';
+ import vertexSource from './vertex.glsl';
+ import fragmentSource from './fragment.glsl';
+-import initState from './state';
+
+-function initRender(props: WebGLInitRenderProps) {
+-  const { context, onResize } = props;
++function triangle(width: number, height: number) {
++  // prettier-ignore
++  return [
++    -width * 1 / 10,  height * 1 / 10,
++     width * 1 / 10,  height * 1 / 10,
++     width * 0 / 10, -height * 1 / 10,
++  ]
++}
++
++class Renderer extends WebGLRenderer {
++  count = signal(10);
++
++  positions = computed(
++    () => new Float32Array(triangle(this.width(), this.height())),
++  );
++
++  scalings = computed(
++    () =>
++      new Float32Array(
++        Array(this.count())
++          .fill(0)
++          .map(() => random(0.5, 2)),
++      ),
++  );
++  offsets = computed(
++    () =>
++      new Float32Array(
++        Array(this.count())
++          .fill(0)
++          .flatMap(() => [
++            random(-(this.width() * 3) / 10, (this.width() * 3) / 10),
++            random(-(this.height() * 3) / 10, (this.height() * 3) / 10),
++          ]),
++      ),
++  );
++
++  colorTextureInfo = computed(() => {
++    const colorCount = this.count() * 3;
++    const width = Math.ceil(Math.sqrt(colorCount));
++    const height = Math.ceil(colorCount / width);
++    const textureData = new Float32Array(width * height * 4);
++    const colorData = Array(this.count() * 3)
++      .fill(0)
++      .flatMap(() => kolor.random(0.5).rgbanorm().array());
++
++    textureData.set(colorData);
++
++    // Fill extra texture data with 0 (padding).
++    for (let i = colorData.length; i < textureData.length; i++) {
++      textureData[i] = 0.0;
++    }
+
+-  const state = initState(props);
++    return { data: textureData, width, height };
++  });
++
++  initPane() {
++    const folder = this.pane!.addFolder({
++      title: 'State',
++    });
++
++    bindSignal(folder, this.count, {
++      label: 'count',
++      min: 1,
++      max: 100,
++      step: 1,
++    });
++  }
++
++  initRender() {
++    const context = this.context;
+
+-  const program = createProgram(context, vertexSource, fragmentSource);
+-  context.useProgram(program);
++    const program = createProgram(context, vertexSource, fragmentSource);
++    context.useProgram(program);
+
+-  const positionLoc = context.getAttribLocation(program, 'a_position');
+-  const positionBuf = context.createBuffer();
+-  state.$on('positions', () => {
++    const vao = context.createVertexArray();
++    context.bindVertexArray(vao);
++
++    const positionBuf = context.createBuffer();
++    effect(() => {
++      context.bindBuffer(context.ARRAY_BUFFER, positionBuf);
++      context.bufferData(
++        context.ARRAY_BUFFER,
++        this.positions(),
++        context.STATIC_DRAW,
++      );
++    });
++    const positionLoc = context.getAttribLocation(program, 'a_position');
+     context.enableVertexAttribArray(positionLoc);
+-    context.bindBuffer(context.ARRAY_BUFFER, positionBuf);
+-    context.bufferData(
+-      context.ARRAY_BUFFER,
+-      state.positions,
+-      context.STATIC_DRAW,
+-    );
+     context.vertexAttribPointer(positionLoc, 2, context.FLOAT, false, 0, 0);
+-  });
+
+-  const scalingLoc = context.getAttribLocation(program, 'a_scaling');
+-  const scalingBuf = context.createBuffer();
+-  state.$on('scalings', () => {
++    const scalingBuf = context.createBuffer();
++    effect(() => {
++      context.bindBuffer(context.ARRAY_BUFFER, scalingBuf);
++      context.bufferData(
++        context.ARRAY_BUFFER,
++        this.scalings(),
++        context.STATIC_DRAW,
++      );
++    });
++    const scalingLoc = context.getAttribLocation(program, 'a_scaling');
+     context.enableVertexAttribArray(scalingLoc);
+-    context.bindBuffer(context.ARRAY_BUFFER, scalingBuf);
+-    context.bufferData(
+-      context.ARRAY_BUFFER,
+-      state.scalings,
+-      context.STATIC_DRAW,
+-    );
+     context.vertexAttribPointer(scalingLoc, 1, context.FLOAT, false, 0, 0);
+-  });
++    // Set the divisor to 1 so each instance uses one value.
++    context.vertexAttribDivisor(scalingLoc, 1);
+
+-  const offsetLoc = context.getAttribLocation(program, 'a_offset');
+-  const offsetBuf = context.createBuffer();
+-  state.$on('offsets', () => {
++    const offsetBuf = context.createBuffer();
++    effect(() => {
++      context.bindBuffer(context.ARRAY_BUFFER, offsetBuf);
++      context.bufferData(
++        context.ARRAY_BUFFER,
++        this.offsets(),
++        context.STATIC_DRAW,
++      );
++    });
++    const offsetLoc = context.getAttribLocation(program, 'a_offset');
+     context.enableVertexAttribArray(offsetLoc);
+-    context.bindBuffer(context.ARRAY_BUFFER, offsetBuf);
+-    context.bufferData(
+-      context.ARRAY_BUFFER,
+-      state.offsets,
+-      context.STATIC_DRAW,
+-    );
+     context.vertexAttribPointer(offsetLoc, 2, context.FLOAT, false, 0, 0);
+-  });
++    context.vertexAttribDivisor(offsetLoc, 1);
+
+-  const colorLoc = context.getAttribLocation(program, 'a_color');
+-  const colorBuf = context.createBuffer();
+-  state.$on('colors', () => {
+-    context.enableVertexAttribArray(colorLoc);
+-    context.bindBuffer(context.ARRAY_BUFFER, colorBuf);
+-    context.bufferData(context.ARRAY_BUFFER, state.colors, context.STATIC_DRAW);
+-    context.vertexAttribPointer(colorLoc, 4, context.UNSIGNED_BYTE, true, 0, 0);
+-  });
++    context.bindVertexArray(null);
+
+-  const resolutionLoc = context.getUniformLocation(program, 'u_resolution');
++    const colorTexture = context.createTexture();
++    context.activeTexture(context.TEXTURE0);
++    context.bindTexture(context.TEXTURE_2D, colorTexture);
++    context.texParameteri(
++      context.TEXTURE_2D,
++      context.TEXTURE_WRAP_S,
++      context.CLAMP_TO_EDGE,
++    );
++    context.texParameteri(
++      context.TEXTURE_2D,
++      context.TEXTURE_WRAP_T,
++      context.CLAMP_TO_EDGE,
++    );
++    context.texParameteri(
++      context.TEXTURE_2D,
++      context.TEXTURE_MIN_FILTER,
++      context.NEAREST,
++    );
++    context.texParameteri(
++      context.TEXTURE_2D,
++      context.TEXTURE_MAG_FILTER,
++      context.NEAREST,
++    );
++    const colorTextureLoc = context.getUniformLocation(
++      program,
++      'u_color_texture',
++    );
++    effect(() => {
++      const textureInfo = this.colorTextureInfo();
++      context.texImage2D(
++        context.TEXTURE_2D,
++        0,
++        context.RGBA32F,
++        textureInfo.width,
++        textureInfo.height,
++        0,
++        context.RGBA,
++        context.FLOAT,
++        textureInfo.data,
++      );
++      context.uniform1i(colorTextureLoc, context.TEXTURE0);
++    });
+
+-  onResize(({ width, height }) => {
+-    context.viewport(0, 0, width, height);
++    const resolutionLoc = context.getUniformLocation(program, 'u_resolution');
+
+-    context.uniform2f(resolutionLoc, width, height);
+-  });
++    effect(() => {
++      context.viewport(0, 0, this.width(), this.height());
++
++      context.uniform2f(resolutionLoc, this.width(), this.height());
++    });
+
+-  const render = () => {
+-    context.clearColor(0, 0, 0, 0);
+-    context.clear(context.COLOR_BUFFER_BIT);
++    context.enable(context.BLEND);
++    context.blendFuncSeparate(
++      context.SRC_ALPHA,
++      context.ONE_MINUS_SRC_ALPHA,
++      context.ONE,
++      context.ONE_MINUS_SRC_ALPHA,
++    );
+
+-    context.drawArrays(context.TRIANGLES, 0, state.count * 3);
+-  };
++    return () => {
++      context.clearColor(0, 0, 0, 0);
++      context.clear(context.COLOR_BUFFER_BIT);
+
+-  return render;
++      context.bindVertexArray(vao);
++      context.drawArraysInstanced(context.TRIANGLES, 0, 3, this.count());
++    };
++  }
+ }
+
+-export default initRender;
++export default Renderer;
+diff --git a/packages/view/app/demo/webgl/random-triangles/state.ts b/packages/view/app/demo/webgl/random-triangles/state.ts
+deleted file mode 100644
+index eafe9ef..0000000
+--- a/packages/view/app/demo/webgl/random-triangles/state.ts
++++ /dev/null
+@@ -1,84 +0,0 @@
+-import { Pane } from 'tweakpane';
+-import type { WebGLInitRenderProps } from '@/components/canvas/WebGLCanvas';
+-import { proxyState } from '@/common/state';
+-import { random } from '@/common/math';
+-import { kolor } from '@/common/color';
+-import { monitorFPS } from '@/common/pane';
+-
+-function triangle(width: number, height: number) {
+-  // prettier-ignore
+-  return [
+-    width * 4 / 10, height * 6 / 10,
+-    width * 6 / 10, height * 6 / 10,
+-    width * 5 / 10, height * 4 / 10,
+-  ]
+-}
+-
+-export function initState({ canvas, onResize }: WebGLInitRenderProps) {
+-  const state = proxyState({
+-    width: canvas.width,
+-    height: canvas.height,
+-    count: 10,
+-    positions: new Float32Array([]),
+-    scalings: new Float32Array([]),
+-    offsets: new Float32Array([]),
+-    colors: new Uint8Array([]),
+-  });
+-
+-  onResize(({ width, height }) => {
+-    state.width = width;
+-    state.height = height;
+-  });
+-
+-  state.$on(['width', 'height', 'count'], () => {
+-    state.positions = new Float32Array(
+-      Array(state.count)
+-        .fill(0)
+-        .flatMap(() => triangle(state.width, state.height)),
+-    );
+-  });
+-
+-  state.$on('count', () => {
+-    state.scalings = new Float32Array(
+-      Array(state.count)
+-        .fill(0)
+-        .flatMap(() => Array(3).fill(random(0.5, 2))),
+-    );
+-    state.offsets = new Float32Array(
+-      Array(state.count)
+-        .fill(0)
+-        .flatMap(() => {
+-          return Array(3)
+-            .fill([
+-              random(-(canvas.width * 4) / 10, (canvas.width * 4) / 10),
+-              random(-(canvas.height * 4) / 10, (canvas.height * 4) / 10),
+-            ])
+-            .flat();
+-        }),
+-    );
+-    state.colors = new Uint8Array(
+-      Array(state.count * 3)
+-        .fill(0)
+-        .flatMap(() => kolor.random().rgba8u().array()),
+-    );
+-  });
+-
+-  const pane = new Pane({ title: 'Pane' });
+-
+-  const folder = pane.addFolder({
+-    title: 'State',
+-  });
+-
+-  folder.addBinding(state, 'count', {
+-    label: 'count',
+-    min: 1,
+-    max: 100,
+-    step: 1,
+-  });
+-
+-  monitorFPS(pane);
+-
+-  return state;
+-}
+-
+-export default initState;
+diff --git a/packages/view/app/demo/webgl/random-triangles/vertex.glsl b/packages/view/app/demo/webgl/random-triangles/vertex.glsl
+index 0e27ff8..1754bb7 100644
+--- a/packages/view/app/demo/webgl/random-triangles/vertex.glsl
++++ b/packages/view/app/demo/webgl/random-triangles/vertex.glsl
+@@ -1,19 +1,24 @@
+ #version 300 es
+
+ in vec2 a_position;
+-in vec4 a_color;
+ in float a_scaling;
+ in vec2 a_offset;
+
+ uniform vec2 u_resolution;
+
++uniform sampler2D u_color_texture;
+ out vec4 v_color;
+
+ void main() {
+-  vec2 trans = (a_position - u_resolution / 2.0) * a_scaling + u_resolution / 2.0 -  + a_offset;
+-  vec2 clip = (trans / u_resolution * 2.0 - 1.0) * vec2(1, -1);
+-
++  vec2 trans = a_position * a_scaling + u_resolution / 2.0f + a_offset;
++  vec2 clip = (trans / u_resolution * 2.0f - 1.0f) * vec2(1, -1);
+   gl_Position = vec4(clip, 0, 1);
+
+-  v_color = a_color;
++  // Calculate color index using gl_InstanceID and gl_VertexID.
++  int colorIndex = gl_InstanceID * 3 + gl_VertexID;
++  int textureWidth = textureSize(u_color_texture, 0).x;
++  int row = colorIndex / textureWidth;
++  int col = colorIndex % textureWidth;
++  // Fetch color directly from texture using integer coordinates.
++  v_color = texelFetch(u_color_texture, ivec2(col, row), 0);
+ }
+diff --git a/packages/view/app/demo/webgpu/first-triangle/page.tsx b/packages/view/app/demo/webgpu/first-triangle/page.tsx
+index ace2d0b..957d90b 100644
+--- a/packages/view/app/demo/webgpu/first-triangle/page.tsx
++++ b/packages/view/app/demo/webgpu/first-triangle/page.tsx
+@@ -1,15 +1,10 @@
+ 'use client';
+
+-import CanvasLayout from '@/components/canvas/CanvasLayout';
+-import WebGPUCanvas from '@/components/canvas/WebGPUCanvas';
+-import initRender from './render';
++import LayoutCanvas from '@/components/canvas/LayoutCanvas';
++import Renderer from './render';
+
+-const FirstTrianglePage = () => {
+-  return (
+-    <CanvasLayout>
+-      <WebGPUCanvas initRender={initRender} />
+-    </CanvasLayout>
+-  );
++const Page = () => {
++  return <LayoutCanvas Renderer={Renderer}></LayoutCanvas>;
+ };
+
+-export default FirstTrianglePage;
++export default Page;
+diff --git a/packages/view/app/demo/webgpu/first-triangle/render.ts b/packages/view/app/demo/webgpu/first-triangle/render.ts
+index 786cb11..46defe6 100644
+--- a/packages/view/app/demo/webgpu/first-triangle/render.ts
++++ b/packages/view/app/demo/webgpu/first-triangle/render.ts
+@@ -1,140 +1,185 @@
+-import type { WebGPUInitRenderProps } from '@/components/canvas/WebGPUCanvas';
++import { WebGPURenderer } from '@/common/renderer';
++import { signal, computed, effect } from '@/common/signal';
++import { kolor } from '@/common/color';
++import { bindSignal } from '@/common/pane';
+ import shaderSource from './shader.wgsl';
+-import initState from './state';
+-
+-function initRender(props: WebGPUInitRenderProps) {
+-  const { context, device, onResize } = props;
+-
+-  const state = initState(props);
+-
+-  const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+-  context.configure({
+-    device,
+-    format: presentationFormat,
+-    alphaMode: 'premultiplied',
+-  });
+-
+-  const shader = device.createShaderModule({
+-    label: 'shader module',
+-    code: shaderSource,
+-  });
+-  const pipeline = device.createRenderPipeline({
+-    label: 'pipline',
+-    layout: 'auto',
+-    vertex: {
+-      module: shader,
+-      entryPoint: 'vs',
+-      buffers: [
+-        {
+-          arrayStride: 2 * Float32Array.BYTES_PER_ELEMENT,
+-          attributes: [
+-            {
+-              shaderLocation: 0,
+-              offset: 0,
+-              format: 'float32x2',
+-            },
+-          ],
+-        },
+-      ],
+-    },
+-    fragment: {
+-      module: shader,
+-      entryPoint: 'fs',
+-      targets: [
+-        {
+-          format: presentationFormat,
+-          blend: {
+-            color: {
+-              srcFactor: 'src-alpha',
+-              dstFactor: 'one-minus-src-alpha',
+-              operation: 'add',
+-            },
+-            alpha: {
+-              srcFactor: 'one',
+-              dstFactor: 'one-minus-src-alpha',
+-              operation: 'add',
+-            },
++
++function triangle(width: number, height: number) {
++  // prettier-ignore
++  return [
++    width * 1 / 10, height * 9 / 10,
++    width * 9 / 10, height * 9 / 10,
++    width * 5 / 10, height * 1 / 10,
++  ]
++}
++
++class Renderer extends WebGPURenderer {
++  positions = computed(
++    () => new Float32Array(triangle(this.width(), this.height())),
++  );
++
++  color1 = signal('#ff000080');
++  color2 = signal('#00ff0080');
++  color3 = signal('#0000ff80');
++  colors = computed(
++    () =>
++      new Float32Array([
++        ...kolor(this.color1()).rgbanorm().array(),
++        ...kolor(this.color2()).rgbanorm().array(),
++        ...kolor(this.color3()).rgbanorm().array(),
++      ]),
++  );
++
++  resolutions = computed(() => new Float32Array([this.width(), this.height()]));
++
++  initPane() {
++    const folder = this.pane!.addFolder({
++      title: 'State',
++    });
++
++    bindSignal(folder, this.color1, {
++      label: 'color 1',
++    });
++    bindSignal(folder, this.color2, {
++      label: 'color 2',
++    });
++    bindSignal(folder, this.color3, {
++      label: 'color 3',
++    });
++  }
++
++  initRender() {
++    const context = this.context;
++    const device = this.device;
++
++    const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
++    context.configure({
++      device,
++      format: presentationFormat,
++      alphaMode: 'premultiplied',
++    });
++
++    const shader = device.createShaderModule({
++      label: 'shader module',
++      code: shaderSource,
++    });
++
++    const pipeline = device.createRenderPipeline({
++      label: 'pipline',
++      layout: 'auto',
++      vertex: {
++        module: shader,
++        entryPoint: 'vs',
++        buffers: [
++          {
++            arrayStride: 2 * Float32Array.BYTES_PER_ELEMENT,
++            attributes: [
++              {
++                shaderLocation: 0,
++                offset: 0,
++                format: 'float32x2',
++              },
++            ],
+           },
+-        },
+-      ],
+-    },
+-  });
+-
+-  const positionBuf = device.createBuffer({
+-    label: 'vertex buffer',
+-    size: state.positions.byteLength,
+-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+-  });
+-  state.$on('positions', (state) => {
+-    device.queue.writeBuffer(positionBuf, 0, state.positions);
+-  });
+-
+-  const colorBuf = device.createBuffer({
+-    label: 'color buffer',
+-    size: state.colors.byteLength,
+-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+-  });
+-  state.$on('colors', (state) => {
+-    device.queue.writeBuffer(colorBuf, 0, state.colors);
+-  });
+-
+-  const resolutions = new Float32Array(2);
+-  const resolutionBuf = device.createBuffer({
+-    label: 'resolution buffer',
+-    size: 2 * Float32Array.BYTES_PER_ELEMENT,
+-    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+-  });
+-  onResize(({ width, height }) => {
+-    resolutions.set([width, height]);
+-    device.queue.writeBuffer(resolutionBuf, 0, resolutions);
+-  });
+-
+-  const bindGroup = device.createBindGroup({
+-    label: 'bind group',
+-    layout: pipeline.getBindGroupLayout(0),
+-    entries: [
+-      {
+-        binding: 0,
+-        resource: {
+-          buffer: colorBuf,
+-        },
++        ],
+       },
+-      {
+-        binding: 1,
+-        resource: {
+-          buffer: resolutionBuf,
+-        },
++      fragment: {
++        module: shader,
++        entryPoint: 'fs',
++        targets: [
++          {
++            format: presentationFormat,
++            blend: {
++              color: {
++                srcFactor: 'src-alpha',
++                dstFactor: 'one-minus-src-alpha',
++                operation: 'add',
++              },
++              alpha: {
++                srcFactor: 'one',
++                dstFactor: 'one-minus-src-alpha',
++                operation: 'add',
++              },
++            },
++          },
++        ],
+       },
+-    ],
+-  });
++    });
++
++    const positionBuf = device.createBuffer({
++      label: 'vertex buffer',
++      size: this.positions().byteLength,
++      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
++    });
++    effect(() => {
++      device.queue.writeBuffer(positionBuf, 0, this.positions());
++    });
++
++    const colorBuf = device.createBuffer({
++      label: 'color buffer',
++      size: this.colors().byteLength,
++      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
++    });
++    effect(() => {
++      device.queue.writeBuffer(colorBuf, 0, this.colors());
++    });
+
+-  const render = () => {
+-    const encoder = device.createCommandEncoder({
+-      label: 'encoder',
++    const resolutions = new Float32Array(2);
++    const resolutionBuf = device.createBuffer({
++      label: 'resolution buffer',
++      size: resolutions.byteLength,
++      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
++    });
++    effect(() => {
++      resolutions.set([this.width(), this.height()]);
++      device.queue.writeBuffer(resolutionBuf, 0, resolutions);
+     });
+-    const pass = encoder.beginRenderPass({
+-      label: 'render pass',
+-      colorAttachments: [
++
++    const bindGroup = device.createBindGroup({
++      label: 'bind group',
++      layout: pipeline.getBindGroupLayout(0),
++      entries: [
+         {
+-          view: context.getCurrentTexture().createView(),
+-          clearValue: [0, 0, 0, 0],
+-          loadOp: 'clear',
+-          storeOp: 'store',
++          binding: 0,
++          resource: {
++            buffer: colorBuf,
++          },
++        },
++        {
++          binding: 1,
++          resource: {
++            buffer: resolutionBuf,
++          },
+         },
+       ],
+     });
+
+-    pass.setPipeline(pipeline);
+-    pass.setVertexBuffer(0, positionBuf);
+-    pass.setBindGroup(0, bindGroup);
+-    pass.draw(3);
+-    pass.end();
++    return () => {
++      const encoder = device.createCommandEncoder({
++        label: 'encoder',
++      });
++      const pass = encoder.beginRenderPass({
++        label: 'render pass',
++        colorAttachments: [
++          {
++            view: context.getCurrentTexture().createView(),
++            clearValue: [0, 0, 0, 0],
++            loadOp: 'clear',
++            storeOp: 'store',
++          },
++        ],
++      });
+
+-    const commandBuffer = encoder.finish();
+-    device.queue.submit([commandBuffer]);
+-  };
++      pass.setPipeline(pipeline);
++      pass.setVertexBuffer(0, positionBuf);
++      pass.setBindGroup(0, bindGroup);
++      pass.draw(3);
++      pass.end();
+
+-  return render;
++      const commandBuffer = encoder.finish();
++      device.queue.submit([commandBuffer]);
++    };
++  }
+ }
+
+-export default initRender;
++export default Renderer;
+diff --git a/packages/view/app/demo/webgpu/first-triangle/shader.wgsl b/packages/view/app/demo/webgpu/first-triangle/shader.wgsl
+index f924ab7..94eedf6 100644
+--- a/packages/view/app/demo/webgpu/first-triangle/shader.wgsl
++++ b/packages/view/app/demo/webgpu/first-triangle/shader.wgsl
+@@ -15,13 +15,13 @@ struct Varing {
+   @builtin(vertex_index) vertexIndex: u32,
+ ) -> Varing {
+   let clip = (vertex.position / resolution * 2.0 - 1.0) * vec2f(1.0, -1.0);
+-  let color = colors[vertexIndex];
++
+   var varing: Varing;
+   varing.position = vec4f(clip, 0.0, 1.0);
+-  varing.color = color;
++  varing.color = colors[vertexIndex];
+   return varing;
+ }
+
+ @fragment fn fs(@location(0) color: vec4f) -> @location(0) vec4f {
+-  return color / 255.0;
++  return color;
+ }
+diff --git a/packages/view/app/demo/webgpu/first-triangle/state.ts b/packages/view/app/demo/webgpu/first-triangle/state.ts
+deleted file mode 100644
+index dda9538..0000000
+--- a/packages/view/app/demo/webgpu/first-triangle/state.ts
++++ /dev/null
+@@ -1,58 +0,0 @@
+-import { Pane } from 'tweakpane';
+-import type { InitRenderProps } from '@/components/canvas/CommonCanvas';
+-import { proxyState } from '@/common/state';
+-import { kolor } from '@/common/color';
+-import { monitorFPS as monitorFrame } from '@/common/pane';
+-
+-function triangle(width: number, height: number) {
+-  // prettier-ignore
+-  return [
+-    width * 1 / 10, height * 9 / 10,
+-    width * 9 / 10, height * 9 / 10,
+-    width * 5 / 10, height * 1 / 10,
+-  ]
+-}
+-
+-export function initState({ onResize }: InitRenderProps) {
+-  const state = proxyState({
+-    positions: new Float32Array([]),
+-    color1: '#ff000080',
+-    color2: '#00ff0080',
+-    color3: '#0000ff80',
+-    colors: new Float32Array([]),
+-  });
+-
+-  onResize(({ width, height }) => {
+-    state.positions = new Float32Array(triangle(width, height));
+-  });
+-
+-  state.$on(['color1', 'color2', 'color3'], () => {
+-    state.colors = new Float32Array([
+-      ...kolor(state.color1).rgba8u().array(),
+-      ...kolor(state.color2).rgba8u().array(),
+-      ...kolor(state.color3).rgba8u().array(),
+-    ]);
+-  });
+-
+-  const pane = new Pane({ title: 'Pane' });
+-
+-  const folder = pane.addFolder({
+-    title: 'State',
+-  });
+-
+-  folder.addBinding(state, 'color1', {
+-    label: 'color 1',
+-  });
+-  folder.addBinding(state, 'color2', {
+-    label: 'color 2',
+-  });
+-  folder.addBinding(state, 'color3', {
+-    label: 'color 3',
+-  });
+-
+-  monitorFrame(pane);
+-
+-  return state;
+-}
+-
+-export default initState;
+diff --git a/packages/view/app/demo/webgpu/random-triangles/page.tsx b/packages/view/app/demo/webgpu/random-triangles/page.tsx
+new file mode 100644
+index 0000000..957d90b
+--- /dev/null
++++ b/packages/view/app/demo/webgpu/random-triangles/page.tsx
+@@ -0,0 +1,10 @@
++'use client';
++
++import LayoutCanvas from '@/components/canvas/LayoutCanvas';
++import Renderer from './render';
++
++const Page = () => {
++  return <LayoutCanvas Renderer={Renderer}></LayoutCanvas>;
++};
++
++export default Page;
+diff --git a/packages/view/app/demo/webgpu/random-triangles/render.ts b/packages/view/app/demo/webgpu/random-triangles/render.ts
+new file mode 100644
+index 0000000..0185f9d
+--- /dev/null
++++ b/packages/view/app/demo/webgpu/random-triangles/render.ts
+@@ -0,0 +1,231 @@
++import { WebGPURenderer } from '@/common/renderer';
++import { signal, computed, effect } from '@/common/signal';
++import { random } from '@/common/math';
++import { kolor } from '@/common/color';
++import { bindSignal } from '@/common/pane';
++import shaderSource from './shader.wgsl';
++
++function triangle(width: number, height: number) {
++  // prettier-ignore
++  return [
++    -width * 1 / 10,  height * 1 / 10,
++     width * 1 / 10,  height * 1 / 10,
++     width * 0 / 10, -height * 1 / 10,
++  ]
++}
++
++class Renderer extends WebGPURenderer {
++  count = signal(10);
++  countMax = 100;
++  countMin = 1;
++
++  positions = computed(
++    () => new Float32Array(triangle(this.width(), this.height())),
++  );
++  scalings = computed(
++    () =>
++      new Float32Array(
++        Array(this.count())
++          .fill(0)
++          .map(() => random(0.5, 2)),
++      ),
++  );
++  offsets = computed(
++    () =>
++      new Float32Array(
++        Array(this.count())
++          .fill(0)
++          .flatMap(() => [
++            random(-(this.width() * 3) / 10, (this.width() * 3) / 10),
++            random(-(this.height() * 3) / 10, (this.height() * 3) / 10),
++          ]),
++      ),
++  );
++
++  colors = computed(
++    () =>
++      new Float32Array(
++        Array(this.count() * 3)
++          .fill(0)
++          .flatMap(() => kolor.random(0.5).rgbanorm().array()),
++      ),
++  );
++
++  initPane() {
++    const folder = this.pane!.addFolder({
++      title: 'State',
++    });
++
++    bindSignal(folder, this.count, {
++      label: 'count',
++      min: this.countMin,
++      max: this.countMax,
++      step: 1,
++    });
++  }
++
++  initRender() {
++    const context = this.context;
++    const device = this.device;
++
++    const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
++    context.configure({
++      device,
++      format: presentationFormat,
++      alphaMode: 'premultiplied',
++    });
++
++    const shader = device.createShaderModule({
++      label: 'shader module',
++      code: shaderSource,
++    });
++
++    const pipeline = device.createRenderPipeline({
++      label: 'pipline',
++      layout: 'auto',
++      vertex: {
++        module: shader,
++        entryPoint: 'vs',
++        buffers: [
++          {
++            arrayStride: 2 * Float32Array.BYTES_PER_ELEMENT,
++            attributes: [
++              {
++                shaderLocation: 0,
++                offset: 0,
++                format: 'float32x2',
++              },
++            ],
++          },
++        ],
++      },
++      fragment: {
++        module: shader,
++        entryPoint: 'fs',
++        targets: [
++          {
++            format: presentationFormat,
++            blend: {
++              color: {
++                srcFactor: 'src-alpha',
++                dstFactor: 'one-minus-src-alpha',
++                operation: 'add',
++              },
++              alpha: {
++                srcFactor: 'one',
++                dstFactor: 'one-minus-src-alpha',
++                operation: 'add',
++              },
++            },
++          },
++        ],
++      },
++    });
++
++    const positionBuf = device.createBuffer({
++      label: 'position buffer',
++      size: this.positions().byteLength,
++      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
++    });
++    effect(() => {
++      device.queue.writeBuffer(positionBuf, 0, this.positions());
++    });
++
++    const scalingBuf = device.createBuffer({
++      label: 'scaling buffer',
++      size: this.countMax * Float32Array.BYTES_PER_ELEMENT,
++      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
++    });
++    effect(() => {
++      device.queue.writeBuffer(scalingBuf, 0, this.scalings());
++    });
++
++    const offsetBuf = device.createBuffer({
++      label: 'offset buffer',
++      size: this.countMax * 2 * Float32Array.BYTES_PER_ELEMENT,
++      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
++    });
++    effect(() => {
++      device.queue.writeBuffer(offsetBuf, 0, this.offsets());
++    });
++
++    const colorBuf = device.createBuffer({
++      label: 'color buffer',
++      size: this.countMax * 3 * 4 * Float32Array.BYTES_PER_ELEMENT,
++      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
++    });
++    effect(() => {
++      device.queue.writeBuffer(colorBuf, 0, this.colors());
++    });
++
++    const resolutions = new Float32Array(2);
++    const resolutionBuf = device.createBuffer({
++      label: 'resolution buffer',
++      size: resolutions.byteLength,
++      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
++    });
++    effect(() => {
++      resolutions.set([this.width(), this.height()]);
++      device.queue.writeBuffer(resolutionBuf, 0, resolutions);
++    });
++
++    const bindGroup = device.createBindGroup({
++      label: 'bind group',
++      layout: pipeline.getBindGroupLayout(0),
++      entries: [
++        {
++          binding: 0,
++          resource: {
++            buffer: scalingBuf,
++          },
++        },
++        {
++          binding: 1,
++          resource: {
++            buffer: offsetBuf,
++          },
++        },
++        {
++          binding: 2,
++          resource: {
++            buffer: colorBuf,
++          },
++        },
++        {
++          binding: 3,
++          resource: {
++            buffer: resolutionBuf,
++          },
++        },
++      ],
++    });
++
++    return () => {
++      const encoder = device.createCommandEncoder({
++        label: 'encoder',
++      });
++      const pass = encoder.beginRenderPass({
++        label: 'render pass',
++        colorAttachments: [
++          {
++            view: context.getCurrentTexture().createView(),
++            clearValue: [0, 0, 0, 0],
++            loadOp: 'clear',
++            storeOp: 'store',
++          },
++        ],
++      });
++
++      pass.setPipeline(pipeline);
++      pass.setVertexBuffer(0, positionBuf);
++      pass.setBindGroup(0, bindGroup);
++      pass.draw(3, this.count());
++      pass.end();
++
++      const commandBuffer = encoder.finish();
++      device.queue.submit([commandBuffer]);
++    };
++  }
++}
++
++export default Renderer;
+diff --git a/packages/view/app/demo/webgpu/random-triangles/shader.wgsl b/packages/view/app/demo/webgpu/random-triangles/shader.wgsl
+new file mode 100644
+index 0000000..7a10480
+--- /dev/null
++++ b/packages/view/app/demo/webgpu/random-triangles/shader.wgsl
+@@ -0,0 +1,33 @@
++struct Vertex {
++  @location(0) position: vec2f,
++};
++
++struct Varing {
++  @builtin(position) position: vec4f,
++  @location(0) color: vec4f,
++};
++
++@group(0) @binding(0) var<storage, read> scalings: array<f32>;
++@group(0) @binding(1) var<storage, read> offsets: array<vec2f>;
++@group(0) @binding(2) var<storage, read> colors: array<vec4f>;
++@group(0) @binding(3) var<uniform> resolution: vec2f;
++
++@vertex fn vs(
++  vertex: Vertex,
++  @builtin(vertex_index) vertexIndex: u32,
++  @builtin(instance_index) instanceIndex: u32
++) -> Varing {
++  let scaling = scalings[instanceIndex];
++  let offset = offsets[instanceIndex];
++  let trans = vertex.position * scaling + resolution / 2.0 + offset;
++  let clip = (trans / resolution * 2.0 - 1.0) * vec2f(1.0, -1.0);
++
++  var varing: Varing;
++  varing.position = vec4f(clip, 0.0, 1.0);
++  varing.color = colors[instanceIndex * 3 + vertexIndex];
++  return varing;
++}
++
++@fragment fn fs(@location(0) color: vec4f) -> @location(0) vec4f {
++  return color;
++}
+diff --git a/packages/view/app/globals.css b/packages/view/app/globals.css
+index 37d72f8..441d98f 100644
+--- a/packages/view/app/globals.css
++++ b/packages/view/app/globals.css
+@@ -19,6 +19,10 @@
+   }
+ }
+
++html {
++  overflow: hidden;
++}
++
+ body {
+   background: var(--background);
+   color: var(--foreground);
+diff --git a/packages/view/app/test/components/canvas/page.tsx b/packages/view/app/test/components/canvas/page.tsx
+index f6f5644..4968052 100644
+--- a/packages/view/app/test/components/canvas/page.tsx
++++ b/packages/view/app/test/components/canvas/page.tsx
+@@ -1,7 +1,7 @@
+ 'use client';
+
+ import { useState } from 'react';
+-import CanvasLayout from '@/components/canvas/CanvasLayout';
++import LayoutCanvas from '@/components/canvas/LayoutCanvas';
+ import CommonCanvas from '@/components/canvas/CommonCanvas';
+
+ export default function CanvasTestPage() {
+@@ -13,12 +13,12 @@ export default function CanvasTestPage() {
+
+       <div className='space-y-12 max-w-6xl mx-auto'>
+         <section>
+-          <h2 className='text-xl font-semibold mb-6'>CanvasLayout 组件</h2>
++          <h2 className='text-xl font-semibold mb-6'>LayoutCanvas 组件</h2>
+           <div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
+             <div className='bg-white p-4 rounded-lg shadow-md'>
+               <h3 className='text-lg font-semibold mb-4'>适应容器模式 (fit)</h3>
+               <div className='h-64 border border-gray-200'>
+-                <CanvasLayout mode='fit' />
++                <LayoutCanvas mode='fit' />
+               </div>
+             </div>
+
+@@ -27,7 +27,7 @@ export default function CanvasTestPage() {
+                 正方形模式 (square)
+               </h3>
+               <div className='h-64 border border-gray-200'>
+-                <CanvasLayout mode='square' />
++                <LayoutCanvas mode='square' />
+               </div>
+             </div>
+           </div>
+diff --git a/packages/view/common/color.ts b/packages/view/common/color.ts
+index f6e4feb..55a117d 100644
+--- a/packages/view/common/color.ts
++++ b/packages/view/common/color.ts
+@@ -110,11 +110,11 @@ export function kolor(
+   return new Color(colorStr);
+ }
+
+-kolor.random = function (alpha?: boolean): Color {
++kolor.random = function (alpha?: boolean | number): Color {
+   return new Color({
+     r: Math.floor(random(0, 255)),
+     g: Math.floor(random(0, 255)),
+     b: Math.floor(random(0, 255)),
+-    a: alpha ? random(0, 1) : 1,
++    a: typeof alpha === 'number' ? alpha : alpha ? random(0, 1) : 1,
+   });
+ };
+diff --git a/packages/view/common/defer.ts b/packages/view/common/defer.ts
+new file mode 100644
+index 0000000..225d3ea
+--- /dev/null
++++ b/packages/view/common/defer.ts
+@@ -0,0 +1,10 @@
++export function createDefer<T>() {
++  let resolve!: (value: T) => void;
++  // eslint-disable-next-line @typescript-eslint/no-explicit-any
++  let reject!: (reason: any) => void;
++  const promise = new Promise<T>((_resolve, _reject) => {
++    resolve = _resolve;
++    reject = _reject;
++  });
++  return { promise, resolve, reject };
++}
+diff --git a/packages/view/common/pane.ts b/packages/view/common/pane.ts
+index 1a208b3..7a2851d 100644
+--- a/packages/view/common/pane.ts
++++ b/packages/view/common/pane.ts
+@@ -1,18 +1,44 @@
+-import type { Pane } from 'tweakpane';
++import type { FolderApi, BindingParams, Pane } from 'tweakpane';
++import { effect } from '@/common/signal';
+
+-/**
+- * Monitor and display FPS graph.
+- * @param pane - Tweakpane instance.
+- */
+-export function monitorFPS(pane: Pane): void {
+-  const state = { frameTime: 0, fps: 0 };
++export function bindSignal<T>(
++  folder: FolderApi,
++  signal: {
++    (): T | undefined;
++    (value: T | undefined): void;
++  },
++  options: BindingParams,
++) {
++  const data = { value: signal() };
++  effect(() => {
++    data.value = signal();
++  });
++  const binding = folder.addBinding(data, 'value', options);
++  binding.on('change', (evt) => {
++    signal(evt.value);
++  });
++  return binding;
++}
++
++export function monitorFrame(pane: Pane): void {
++  const state = {
++    ft: 0,
++    fps: 0,
++  };
+
+   const folder = pane.addFolder({
+-    title: 'Frame Monitor',
++    title: 'Frame',
+   });
+
+   const tab = folder.addTab({
+-    pages: [{ title: 'FPS' }, { title: 'Frame Time' }],
++    pages: [
++      {
++        title: 'FPS',
++      },
++      {
++        title: 'FT',
++      },
++    ],
+   });
+
+   tab.pages[0].addBinding(state, 'fps', {
+@@ -24,8 +50,8 @@ export function monitorFPS(pane: Pane): void {
+     interval: 128,
+   });
+
+-  tab.pages[1].addBinding(state, 'frameTime', {
+-    label: 'frame time',
++  tab.pages[1].addBinding(state, 'ft', {
++    label: 'ft',
+     view: 'graph',
+     readonly: true,
+     min: 0,
+@@ -37,8 +63,8 @@ export function monitorFPS(pane: Pane): void {
+
+   function update() {
+     const now = performance.now();
+-    state.frameTime = now - prev;
+-    state.fps = Math.round(1000 / state.frameTime);
++    state.ft = now - prev;
++    state.fps = Math.round(1000 / state.ft);
+     prev = now;
+     requestAnimationFrame(update);
+   }
+diff --git a/packages/view/common/renderer.ts b/packages/view/common/renderer.ts
+new file mode 100644
+index 0000000..0c622ae
+--- /dev/null
++++ b/packages/view/common/renderer.ts
+@@ -0,0 +1,117 @@
++import { Pane } from 'tweakpane';
++import { signal } from '@/common/signal';
++import { observeCanvasResize } from '@/common/resize';
++import { monitorFrame } from '@/common/pane';
++import { requestDevice } from '@/common/webgpu';
++import { createDefer } from './defer';
++
++export abstract class CommonRenderer {
++  protected canvas: HTMLCanvasElement;
++
++  private inited = false;
++
++  protected pane: Pane | null = null;
++
++  private resizeObserver: ResizeObserver | null = null;
++
++  protected width = signal(0);
++  protected height = signal(0);
++
++  protected render: (() => void) | null = null;
++
++  private frameId: number | null = null;
++
++  private disposed = false;
++
++  constructor(canvas: HTMLCanvasElement) {
++    this.canvas = canvas;
++  }
++
++  init() {
++    if (this.inited) {
++      return;
++    }
++    this.inited = true;
++    this.pane = new Pane({ title: 'Pane' });
++    this.initPane();
++    monitorFrame(this.pane!);
++    Promise.all([this.initResize(), this.initContext()]).then(() => {
++      if (this.disposed) {
++        return;
++      }
++      this.render = this.initRender();
++      this.startRenderLoop();
++    });
++  }
++
++  private initResize() {
++    const defer = createDefer();
++    const fullfilled = false;
++    this.resizeObserver = observeCanvasResize(this.canvas, (event) => {
++      if (!fullfilled) {
++        defer.resolve(event);
++      }
++      this.width(event.width);
++      this.height(event.height);
++    });
++    return defer.promise;
++  }
++
++  protected abstract initContext(): Promise<void>;
++
++  protected initPane(): void {}
++
++  protected abstract initRender(): () => void;
++
++  private startRenderLoop() {
++    const loop = () => {
++      if (!this.render) {
++        this.frameId = null;
++        return;
++      }
++      this.render();
++      this.frameId = requestAnimationFrame(loop);
++    };
++    this.frameId = requestAnimationFrame(loop);
++  }
++
++  dispose() {
++    if (this.disposed) {
++      return;
++    }
++    this.disposed = true;
++    if (this.frameId) {
++      cancelAnimationFrame(this.frameId);
++      this.frameId = null;
++    }
++    this.resizeObserver?.disconnect();
++    this.pane?.dispose();
++  }
++}
++
++export abstract class WebGLRenderer extends CommonRenderer {
++  protected context!: WebGL2RenderingContext;
++
++  protected async initContext(): Promise<void> {
++    const context = this.canvas.getContext('webgl2');
++    if (!context) {
++      throw new Error('WebGL2 is not supported.');
++    }
++    this.context = context;
++  }
++}
++
++export abstract class WebGPURenderer extends CommonRenderer {
++  protected context!: GPUCanvasContext;
++
++  protected device!: GPUDevice;
++
++  protected async initContext(): Promise<void> {
++    const context = this.canvas.getContext('webgpu');
++    if (!context) {
++      throw new Error('WebGPU is not supported.');
++    }
++    this.context = context;
++    this.device = await requestDevice();
++  }
++}
+diff --git a/packages/view/common/signal.ts b/packages/view/common/signal.ts
+new file mode 100644
+index 0000000..10301bd
+--- /dev/null
++++ b/packages/view/common/signal.ts
+@@ -0,0 +1,7 @@
++import { signal, computed } from 'alien-signals';
++
++export { signal, computed, effect } from 'alien-signals';
++
++export type Signal<T> = ReturnType<typeof signal<T>>;
++
++export type Computed<T> = ReturnType<typeof computed<T>>;
+diff --git a/packages/view/components/canvas/CommonCanvas.tsx b/packages/view/components/canvas/CommonCanvas.tsx
+index 1e6f708..f1f1dfa 100644
+--- a/packages/view/components/canvas/CommonCanvas.tsx
++++ b/packages/view/components/canvas/CommonCanvas.tsx
+@@ -1,113 +1,57 @@
+ 'use client';
+
+-import React, { useCallback, useEffect, useRef } from 'react';
++import React, { useEffect, useRef } from 'react';
+ import clsx from 'clsx';
+-import {
+-  CanvasResizeEvent,
+-  resizeCanvasToDisplaySize,
+-  observeCanvasResize,
+-} from '@/common/resize';
++import { CommonRenderer } from '@/common/renderer';
++import { CanvasResizeEvent, observeCanvasResize } from '@/common/resize';
+
+ export type ResizeCallback = (event: CanvasResizeEvent) => void;
+
+-export interface InitRenderProps {
+-  canvas: HTMLCanvasElement;
+-  onResize: (callback: ResizeCallback, immediate?: boolean) => () => void;
+-}
+-
+-export type InitRenderReturn = (() => void) | Promise<() => void>;
+-
+-export interface CommonCanvasProps {
+-  initRender?: (props: InitRenderProps) => InitRenderReturn;
++export interface CommonCanvasProps<R extends typeof CommonRenderer> {
+   className?: string;
+   style?: React.CSSProperties;
+   children?: React.ReactNode;
++  Renderer: R;
+   onResize?: ResizeCallback;
+ }
+
+-const CommonCanvas: React.FC<CommonCanvasProps> = ({
+-  initRender,
++const CommonCanvas = <R extends typeof CommonRenderer>({
++  Renderer,
+   className = '',
+   style = {},
+   children,
+   onResize,
+-}) => {
++}: CommonCanvasProps<R>) => {
+   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+-  const resizeCbsRef = useRef<Set<ResizeCallback>>(new Set());
+-  const listenResize = (
+-    callback: (event: CanvasResizeEvent) => void,
+-    immediate = true,
+-  ) => {
+-    resizeCbsRef.current.add(callback);
+-    if (immediate) {
+-      const canvas = canvasRef.current!;
+-      callback({ canvas, width: canvas.width, height: canvas.height });
++  useEffect(() => {
++    let observer: ResizeObserver;
++    if (canvasRef.current && onResize) {
++      observer = observeCanvasResize(canvasRef.current, (event) => {
++        onResize(event);
++      });
+     }
++
+     return () => {
+-      resizeCbsRef.current?.delete(callback);
++      observer?.disconnect();
+     };
+-  };
+-
+-  useEffect(
+-    () => {
+-      const canvas = canvasRef.current!;
+-
+-      resizeCanvasToDisplaySize(canvas);
+-
+-      const observer = observeCanvasResize(canvas, (event) => {
+-        onResize?.(event);
+-        resizeCbsRef.current.forEach((cb) => cb(event));
+-      });
+-
+-      return () => {
+-        observer.disconnect();
+-      };
+-    },
+-    // eslint-disable-next-line react-hooks/exhaustive-deps
+-    [],
+-  );
+-
+-  const renderRef = useRef<() => void>(null);
+-  const frameRef = useRef<number>(0);
+-
+-  const renderHandler = useCallback(() => {
+-    if (renderRef.current) {
+-      renderRef.current();
+-      frameRef.current = requestAnimationFrame(renderHandler);
+-    } else {
+-      cancelAnimationFrame(frameRef.current);
+-      frameRef.current = 0;
+-    }
+-  }, []);
++  }, [onResize]);
+
+   useEffect(() => {
+-    let ignore = false;
+-
+-    async function init() {
+-      if (initRender) {
+-        const render = await initRender({
+-          canvas: canvasRef.current!,
+-          onResize: listenResize,
+-        });
+-        if (ignore) {
+-          return;
+-        }
+-        renderRef.current = render;
+-        frameRef.current = requestAnimationFrame(renderHandler);
+-      } else {
+-        renderRef.current = null;
+-      }
++    let renderer: CommonRenderer;
++    if (Renderer) {
++      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
++      // @ts-ignore
++      renderer = new Renderer(canvasRef.current!);
++      renderer.init();
+     }
+
+-    init();
+-
+     return () => {
+-      ignore = true;
+-      cancelAnimationFrame(frameRef.current);
+-      frameRef.current = 0;
++      if (renderer) {
++        renderer.dispose();
++      }
+     };
+-  }, [initRender, renderHandler]);
++  }, [Renderer]);
+
+   return (
+     <canvas
+diff --git a/packages/view/components/canvas/CanvasLayout.tsx b/packages/view/components/canvas/LayoutCanvas.tsx
+similarity index 54%
+rename from packages/view/components/canvas/CanvasLayout.tsx
+rename to packages/view/components/canvas/LayoutCanvas.tsx
+index 59e84da..95557d5 100644
+--- a/packages/view/components/canvas/CanvasLayout.tsx
++++ b/packages/view/components/canvas/LayoutCanvas.tsx
+@@ -1,31 +1,30 @@
+ 'use client';
+
+-import React, { useCallback, useEffect, useRef } from 'react';
++import { memo, useCallback, useEffect, useRef, useState } from 'react';
++import CommonCanvas, { CommonCanvasProps } from './CommonCanvas';
++import { CommonRenderer } from '@/common/renderer';
+
+ export type LayoutMode = 'fit' | 'square';
+
+-export interface CanvasLayoutProps {
++export interface LayoutCanvasProps<R extends typeof CommonRenderer>
++  extends CommonCanvasProps<R> {
+   mode?: LayoutMode;
+   ratio?: number;
+-  children?: React.ReactNode;
+ }
+
+-const CanvasLayout: React.FC<CanvasLayoutProps> = ({
++const LayoutCanvas = <R extends typeof CommonRenderer>({
+   mode = 'square',
+   ratio = 0.8,
+-  children,
+-}) => {
++  ...rest
++}: LayoutCanvasProps<R>) => {
++  const [ready, setReady] = useState(false);
+   const outerRef = useRef<HTMLDivElement>(null);
+   const innerRef = useRef<HTMLDivElement>(null);
+
+   const resizeHandler = useCallback(
+-    (entries?: ResizeObserverEntry[]) => {
+-      if (!outerRef.current || !innerRef.current) {
+-        return;
+-      }
+-
+-      const outer = outerRef.current;
+-      const inner = innerRef.current;
++    (entries: ResizeObserverEntry[]) => {
++      const outer = outerRef.current!;
++      const inner = innerRef.current!;
+
+       let outerWidth, outerHeight;
+
+@@ -50,20 +49,27 @@ const CanvasLayout: React.FC<CanvasLayoutProps> = ({
+
+       inner.style.width = `${innerWidth}px`;
+       inner.style.height = `${innerHeight}px`;
++
++      if (!ready) {
++        setReady(true);
++      }
+     },
+-    [ratio, mode],
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++    [],
+   );
+
+-  useEffect(() => {
+-    resizeHandler();
++  useEffect(
++    () => {
++      const observer = new ResizeObserver(resizeHandler);
++      observer.observe(outerRef.current!);
+
+-    const observer = new ResizeObserver(resizeHandler);
+-    observer.observe(outerRef.current!);
+-
+-    return () => {
+-      observer.disconnect();
+-    };
+-  }, [resizeHandler]);
++      return () => {
++        observer.disconnect();
++      };
++    },
++    // eslint-disable-next-line react-hooks/exhaustive-deps
++    [],
++  );
+
+   return (
+     <div
+@@ -74,10 +80,10 @@ const CanvasLayout: React.FC<CanvasLayoutProps> = ({
+         ref={innerRef}
+         className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white shadow-md'
+       >
+-        {children}
++        {ready ? <CommonCanvas {...rest}></CommonCanvas> : null}
+       </div>
+     </div>
+   );
+ };
+
+-export default CanvasLayout;
++export default memo(LayoutCanvas);
+diff --git a/packages/view/components/canvas/WebGLCanvas.tsx b/packages/view/components/canvas/WebGLCanvas.tsx
+deleted file mode 100644
+index d513a10..0000000
+--- a/packages/view/components/canvas/WebGLCanvas.tsx
++++ /dev/null
+@@ -1,45 +0,0 @@
+-'use client';
+-
+-import React, { useCallback } from 'react';
+-import CommonCanvas, {
+-  CommonCanvasProps,
+-  InitRenderProps,
+-  InitRenderReturn,
+-} from './CommonCanvas';
+-
+-export interface WebGLInitRenderProps extends InitRenderProps {
+-  context: WebGL2RenderingContext;
+-}
+-
+-export interface WebGLCanvasProps
+-  extends Omit<CommonCanvasProps, 'initRender'> {
+-  initRender?: (props: WebGLInitRenderProps) => InitRenderReturn;
+-}
+-
+-const WebGLCanvas: React.FC<WebGLCanvasProps> = ({ initRender, ...props }) => {
+-  const initRenderInner = useCallback(
+-    (initProps: InitRenderProps) => {
+-      if (!initRender) {
+-        return () => {};
+-      }
+-
+-      const canvas = initProps.canvas;
+-      const context = canvas.getContext('webgl2');
+-      if (!context) {
+-        throw new Error('WebGL2 is not supported');
+-      }
+-
+-      return initRender({ ...initProps, context });
+-    },
+-    [initRender],
+-  );
+-
+-  return (
+-    <CommonCanvas
+-      initRender={initRender ? initRenderInner : undefined}
+-      {...props}
+-    />
+-  );
+-};
+-
+-export default WebGLCanvas;
+diff --git a/packages/view/components/canvas/WebGPUCanvas.tsx b/packages/view/components/canvas/WebGPUCanvas.tsx
+deleted file mode 100644
+index a3b24f4..0000000
+--- a/packages/view/components/canvas/WebGPUCanvas.tsx
++++ /dev/null
+@@ -1,52 +0,0 @@
+-'use client';
+-
+-import React, { useCallback } from 'react';
+-import { requestDevice } from '@/common/webgpu';
+-import CommonCanvas, {
+-  CommonCanvasProps,
+-  InitRenderProps,
+-  InitRenderReturn,
+-} from './CommonCanvas';
+-
+-export interface WebGPUInitRenderProps extends InitRenderProps {
+-  context: GPUCanvasContext;
+-  device: GPUDevice;
+-}
+-
+-export interface WebGPUCanvasProps
+-  extends Omit<CommonCanvasProps, 'initRender'> {
+-  initRender?: (props: WebGPUInitRenderProps) => InitRenderReturn;
+-}
+-
+-const WebGPUCanvas: React.FC<WebGPUCanvasProps> = ({
+-  initRender,
+-  ...props
+-}) => {
+-  const initRenderInner = useCallback(
+-    async (initProps: InitRenderProps) => {
+-      if (!initRender) {
+-        return () => {};
+-      }
+-
+-      const canvas = initProps.canvas;
+-      const context = canvas.getContext('webgpu');
+-      if (!context) {
+-        throw new Error('WebGPU is not supported');
+-      }
+-
+-      const device = await requestDevice();
+-
+-      return initRender({ ...initProps, context, device });
+-    },
+-    [initRender],
+-  );
+-
+-  return (
+-    <CommonCanvas
+-      initRender={initRender ? initRenderInner : undefined}
+-      {...props}
+-    />
+-  );
+-};
+-
+-export default WebGPUCanvas;
+diff --git a/packages/view/package.json b/packages/view/package.json
+index d830f10..f7f8aac 100644
+--- a/packages/view/package.json
++++ b/packages/view/package.json
+@@ -11,6 +11,7 @@
+     "test": "vitest"
+   },
+   "dependencies": {
++    "alien-signals": "^2.0.5",
+     "clsx": "^2.1.1",
+     "color": "^5.0.0",
+     "next": "15.3.3",

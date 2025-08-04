@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import CanvasLayout from '@/components/canvas/CanvasLayout';
+import LayoutCanvas from '@/components/canvas/LayoutCanvas';
 import CommonCanvas from '@/components/canvas/CommonCanvas';
 
 export default function CanvasTestPage() {
@@ -13,12 +13,12 @@ export default function CanvasTestPage() {
 
       <div className='space-y-12 max-w-6xl mx-auto'>
         <section>
-          <h2 className='text-xl font-semibold mb-6'>CanvasLayout 组件</h2>
+          <h2 className='text-xl font-semibold mb-6'>LayoutCanvas 组件</h2>
           <div className='grid grid-cols-1 md:grid-cols-2 gap-8'>
             <div className='bg-white p-4 rounded-lg shadow-md'>
               <h3 className='text-lg font-semibold mb-4'>适应容器模式 (fit)</h3>
               <div className='h-64 border border-gray-200'>
-                <CanvasLayout mode='fit' />
+                <LayoutCanvas mode='fit' />
               </div>
             </div>
 
@@ -27,7 +27,7 @@ export default function CanvasTestPage() {
                 正方形模式 (square)
               </h3>
               <div className='h-64 border border-gray-200'>
-                <CanvasLayout mode='square' />
+                <LayoutCanvas mode='square' />
               </div>
             </div>
           </div>

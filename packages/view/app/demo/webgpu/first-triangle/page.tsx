@@ -1,15 +1,10 @@
 'use client';
 
-import CanvasLayout from '@/components/canvas/CanvasLayout';
-import WebGPUCanvas from '@/components/canvas/WebGPUCanvas';
-import initRender from './render';
+import LayoutCanvas from '@/components/canvas/LayoutCanvas';
+import Renderer from './render';
 
-const FirstTrianglePage = () => {
-  return (
-    <CanvasLayout>
-      <WebGPUCanvas initRender={initRender} />
-    </CanvasLayout>
-  );
+const Page = () => {
+  return <LayoutCanvas Renderer={Renderer}></LayoutCanvas>;
 };
 
-export default FirstTrianglePage;
+export default Page;

@@ -110,11 +110,11 @@ export function kolor(
   return new Color(colorStr);
 }
 
-kolor.random = function (alpha?: boolean): Color {
+kolor.random = function (alpha?: boolean | number): Color {
   return new Color({
     r: Math.floor(random(0, 255)),
     g: Math.floor(random(0, 255)),
     b: Math.floor(random(0, 255)),
-    a: alpha ? random(0, 1) : 1,
+    a: typeof alpha === 'number' ? alpha : alpha ? random(0, 1) : 1,
   });
 };

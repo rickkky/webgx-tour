@@ -3,5 +3,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <div className='absolute inset-0 w-full h-full'>{children}</div>;
+  return (
+    <div className='absolute overflow-hidden inset-0 w-full h-full'>
+      {children}
+    </div>
+  );
 }

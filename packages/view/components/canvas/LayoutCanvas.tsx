@@ -1,31 +1,30 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import CommonCanvas, { CommonCanvasProps } from './CommonCanvas';
+import { CommonRenderer } from '@/common/renderer';
 
 export type LayoutMode = 'fit' | 'square';
 
-export interface CanvasLayoutProps {
+export interface LayoutCanvasProps<R extends typeof CommonRenderer>
+  extends CommonCanvasProps<R> {
   mode?: LayoutMode;
   ratio?: number;
-  children?: React.ReactNode;
 }
 
-const CanvasLayout: React.FC<CanvasLayoutProps> = ({
+const LayoutCanvas = <R extends typeof CommonRenderer>({
   mode = 'square',
   ratio = 0.8,
-  children,
-}) => {
+  ...rest
+}: LayoutCanvasProps<R>) => {
+  const [ready, setReady] = useState(false);
   const outerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
 
   const resizeHandler = useCallback(
-    (entries?: ResizeObserverEntry[]) => {
-      if (!outerRef.current || !innerRef.current) {
-        return;
-      }
-
-      const outer = outerRef.current;
-      const inner = innerRef.current;
+    (entries: ResizeObserverEntry[]) => {
+      const outer = outerRef.current!;
+      const inner = innerRef.current!;
 
       let outerWidth, outerHeight;
 
@@ -50,20 +49,27 @@ const CanvasLayout: React.FC<CanvasLayoutProps> = ({
 
       inner.style.width = `${innerWidth}px`;
       inner.style.height = `${innerHeight}px`;
+
+      if (!ready) {
+        setReady(true);
+      }
     },
-    [ratio, mode],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
   );
 
-  useEffect(() => {
-    resizeHandler();
+  useEffect(
+    () => {
+      const observer = new ResizeObserver(resizeHandler);
+      observer.observe(outerRef.current!);
 
-    const observer = new ResizeObserver(resizeHandler);
-    observer.observe(outerRef.current!);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [resizeHandler]);
+      return () => {
+        observer.disconnect();
+      };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   return (
     <div
@@ -74,10 +80,10 @@ const CanvasLayout: React.FC<CanvasLayoutProps> = ({
         ref={innerRef}
         className='absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white shadow-md'
       >
-        {children}
+        {ready ? <CommonCanvas {...rest}></CommonCanvas> : null}
       </div>
     </div>
   );
 };
 
-export default CanvasLayout;
+export default memo(LayoutCanvas);
