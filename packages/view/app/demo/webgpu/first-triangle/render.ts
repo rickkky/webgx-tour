@@ -1,7 +1,8 @@
-import { WebGPURenderer } from '@/common/renderer';
-import { signal, computed, effect } from '@/common/signal';
 import { kolor } from '@/common/color';
 import { bindSignal } from '@/common/pane';
+import { WebGPURenderer } from '@/common/renderer';
+import { computed, effect, signal } from '@/common/signal';
+
 import shaderSource from './shader.wgsl';
 
 function triangle(width: number, height: number) {
@@ -14,41 +15,28 @@ function triangle(width: number, height: number) {
 }
 
 class Renderer extends WebGPURenderer {
-  positions = computed(
-    () => new Float32Array(triangle(this.width(), this.height())),
-  );
-
-  color1 = signal('#ff000080');
-  color2 = signal('#00ff0080');
-  color3 = signal('#0000ff80');
-  colors = computed(
-    () =>
-      new Float32Array([
-        ...kolor(this.color1()).rgbanorm().array(),
-        ...kolor(this.color2()).rgbanorm().array(),
-        ...kolor(this.color3()).rgbanorm().array(),
-      ]),
-  );
-
-  resolutions = computed(() => new Float32Array([this.width(), this.height()]));
+  state = {
+    color1: signal('#ff000080'),
+    color2: signal('#00ff0080'),
+    color3: signal('#0000ff80'),
+  };
 
   initPane() {
     const folder = this.pane!.addFolder({
       title: 'State',
     });
-
-    bindSignal(folder, this.color1, {
+    bindSignal(folder, this.state.color1, {
       label: 'color 1',
     });
-    bindSignal(folder, this.color2, {
+    bindSignal(folder, this.state.color2, {
       label: 'color 2',
     });
-    bindSignal(folder, this.color3, {
+    bindSignal(folder, this.state.color3, {
       label: 'color 3',
     });
   }
 
-  initRender() {
+  async initRender() {
     const context = this.context;
     const device = this.device;
 
@@ -106,33 +94,45 @@ class Renderer extends WebGPURenderer {
       },
     });
 
+    const positions = computed(
+      () => new Float32Array(triangle(this.width(), this.height())),
+    );
     const positionBuf = device.createBuffer({
       label: 'vertex buffer',
-      size: this.positions().byteLength,
+      size: positions().byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
     effect(() => {
-      device.queue.writeBuffer(positionBuf, 0, this.positions());
+      device.queue.writeBuffer(positionBuf, 0, positions());
     });
 
+    const colors = computed(
+      () =>
+        new Float32Array([
+          ...kolor(this.state.color1()).rgbanorm().array(),
+          ...kolor(this.state.color2()).rgbanorm().array(),
+          ...kolor(this.state.color3()).rgbanorm().array(),
+        ]),
+    );
     const colorBuf = device.createBuffer({
       label: 'color buffer',
-      size: this.colors().byteLength,
+      size: colors().byteLength,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     effect(() => {
-      device.queue.writeBuffer(colorBuf, 0, this.colors());
+      device.queue.writeBuffer(colorBuf, 0, colors());
     });
 
-    const resolutions = new Float32Array(2);
+    const resolutions = computed(
+      () => new Float32Array([this.width(), this.height()]),
+    );
     const resolutionBuf = device.createBuffer({
       label: 'resolution buffer',
-      size: resolutions.byteLength,
+      size: resolutions().byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     effect(() => {
-      resolutions.set([this.width(), this.height()]);
-      device.queue.writeBuffer(resolutionBuf, 0, resolutions);
+      device.queue.writeBuffer(resolutionBuf, 0, resolutions());
     });
 
     const bindGroup = device.createBindGroup({

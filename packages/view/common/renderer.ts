@@ -1,8 +1,10 @@
 import { Pane } from 'tweakpane';
-import { signal } from '@/common/signal';
-import { observeCanvasResize } from '@/common/resize';
+
 import { monitorFrame } from '@/common/pane';
+import { observeCanvasResize } from '@/common/resize';
+import { signal } from '@/common/signal';
 import { requestDevice } from '@/common/webgpu';
+
 import { createDefer } from './defer';
 
 export abstract class CommonRenderer {
@@ -27,7 +29,7 @@ export abstract class CommonRenderer {
     this.canvas = canvas;
   }
 
-  init() {
+  async init() {
     if (this.inited) {
       return;
     }
@@ -35,13 +37,12 @@ export abstract class CommonRenderer {
     this.pane = new Pane({ title: 'Pane' });
     this.initPane();
     monitorFrame(this.pane!);
-    Promise.all([this.initResize(), this.initContext()]).then(() => {
-      if (this.disposed) {
-        return;
-      }
-      this.render = this.initRender();
-      this.startRenderLoop();
-    });
+    await Promise.all([this.initResize(), this.initContext()]);
+    if (this.disposed) {
+      return;
+    }
+    this.render = await this.initRender();
+    this.startRenderLoop();
   }
 
   private initResize() {
@@ -61,7 +62,7 @@ export abstract class CommonRenderer {
 
   protected initPane(): void {}
 
-  protected abstract initRender(): () => void;
+  protected abstract initRender(): Promise<() => void>;
 
   private startRenderLoop() {
     const loop = () => {

@@ -2,11 +2,11 @@
 
 precision highp float;
 
+in vec2 v_texCoord;
+
 uniform sampler2D u_image;
 uniform float u_kernel[9];
 uniform float u_kernelWeight;
-
-in vec2 v_texCoord;
 
 out vec4 color;
 

@@ -1,4 +1,4 @@
-import { random } from './math';
+import { random } from '@/common/math';
 
 export type ColorLike =
   | string

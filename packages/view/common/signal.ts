@@ -1,6 +1,6 @@
-import { signal, computed } from 'alien-signals';
+import { computed, signal } from 'alien-signals';
 
-export { signal, computed, effect } from 'alien-signals';
+export { computed, effect, signal } from 'alien-signals';
 
 export type Signal<T> = ReturnType<typeof signal<T>>;
 

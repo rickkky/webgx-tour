@@ -1,10 +1,11 @@
-import { WebGLRenderer } from '@/common/renderer';
-import { signal, computed, effect } from '@/common/signal';
 import { kolor } from '@/common/color';
 import { bindSignal } from '@/common/pane';
+import { WebGLRenderer } from '@/common/renderer';
+import { computed, effect, signal } from '@/common/signal';
 import { createProgram } from '@/common/webgl';
-import vertexSource from './vertex.glsl';
+
 import fragmentSource from './fragment.glsl';
+import vertexSource from './vertex.glsl';
 
 function triangle(width: number, height: number) {
   // prettier-ignore
@@ -16,39 +17,28 @@ function triangle(width: number, height: number) {
 }
 
 class Renderer extends WebGLRenderer {
-  positions = computed(
-    () => new Float32Array(triangle(this.width(), this.height())),
-  );
-
-  color1 = signal('#ff000080');
-  color2 = signal('#00ff0080');
-  color3 = signal('#0000ff80');
-  colors = computed(
-    () =>
-      new Float32Array([
-        ...kolor(this.color1()).rgbanorm().array(),
-        ...kolor(this.color2()).rgbanorm().array(),
-        ...kolor(this.color3()).rgbanorm().array(),
-      ]),
-  );
+  state = {
+    color1: signal('#ff000080'),
+    color2: signal('#00ff0080'),
+    color3: signal('#0000ff80'),
+  };
 
   initPane() {
     const folder = this.pane!.addFolder({
       title: 'State',
     });
-
-    bindSignal(folder, this.color1, {
+    bindSignal(folder, this.state.color1, {
       label: 'color 1',
     });
-    bindSignal(folder, this.color2, {
+    bindSignal(folder, this.state.color2, {
       label: 'color 2',
     });
-    bindSignal(folder, this.color3, {
+    bindSignal(folder, this.state.color3, {
       label: 'color 3',
     });
   }
 
-  initRender() {
+  async initRender() {
     const context = this.context;
 
     const program = createProgram(context, vertexSource, fragmentSource);
@@ -57,12 +47,15 @@ class Renderer extends WebGLRenderer {
     const vao = context.createVertexArray();
     context.bindVertexArray(vao);
 
+    const positions = computed(
+      () => new Float32Array(triangle(this.width(), this.height())),
+    );
     const positionBuf = context.createBuffer();
     effect(() => {
       context.bindBuffer(context.ARRAY_BUFFER, positionBuf);
       context.bufferData(
         context.ARRAY_BUFFER,
-        this.positions(),
+        positions(),
         context.STATIC_DRAW,
       );
     });
@@ -71,27 +64,32 @@ class Renderer extends WebGLRenderer {
     // It implicitly binds the current `ARRAY_BUFFER` to the attribute.
     context.vertexAttribPointer(positionLoc, 2, context.FLOAT, false, 0, 0);
 
+    const colors = computed(
+      () =>
+        new Float32Array([
+          ...kolor(this.state.color1()).rgbanorm().array(),
+          ...kolor(this.state.color2()).rgbanorm().array(),
+          ...kolor(this.state.color3()).rgbanorm().array(),
+        ]),
+    );
     const colorBuf = context.createBuffer();
     effect(() => {
       context.bindBuffer(context.ARRAY_BUFFER, colorBuf);
-      context.bufferData(
-        context.ARRAY_BUFFER,
-        this.colors(),
-        context.STATIC_DRAW,
-      );
+      context.bufferData(context.ARRAY_BUFFER, colors(), context.STATIC_DRAW);
     });
     const colorLoc = context.getAttribLocation(program, 'a_color');
     context.enableVertexAttribArray(colorLoc);
-    // It implicitly binds the current `ARRAY_BUFFER` to the attribute.
     context.vertexAttribPointer(colorLoc, 4, context.FLOAT, false, 0, 0);
 
     context.bindVertexArray(null);
 
     const resolutionLoc = context.getUniformLocation(program, 'u_resolution');
     effect(() => {
-      context.viewport(0, 0, this.width(), this.height());
-
       context.uniform2f(resolutionLoc, this.width(), this.height());
+    });
+
+    effect(() => {
+      context.viewport(0, 0, this.width(), this.height());
     });
 
     context.enable(context.BLEND);

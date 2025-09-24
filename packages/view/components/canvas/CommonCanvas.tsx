@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
 import clsx from 'clsx';
+import React, { useEffect, useRef } from 'react';
+
 import { CommonRenderer } from '@/common/renderer';
 import { CanvasResizeEvent, observeCanvasResize } from '@/common/resize';
 

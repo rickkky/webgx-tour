@@ -1,8 +1,9 @@
-import { WebGPURenderer } from '@/common/renderer';
-import { signal, computed, effect } from '@/common/signal';
-import { random } from '@/common/math';
 import { kolor } from '@/common/color';
+import { random } from '@/common/math';
 import { bindSignal } from '@/common/pane';
+import { WebGPURenderer } from '@/common/renderer';
+import { computed, effect, signal } from '@/common/signal';
+
 import shaderSource from './shader.wgsl';
 
 function triangle(width: number, height: number) {
@@ -15,56 +16,25 @@ function triangle(width: number, height: number) {
 }
 
 class Renderer extends WebGPURenderer {
-  count = signal(10);
-  countMax = 100;
-  countMin = 1;
-
-  positions = computed(
-    () => new Float32Array(triangle(this.width(), this.height())),
-  );
-  scalings = computed(
-    () =>
-      new Float32Array(
-        Array(this.count())
-          .fill(0)
-          .map(() => random(0.5, 2)),
-      ),
-  );
-  offsets = computed(
-    () =>
-      new Float32Array(
-        Array(this.count())
-          .fill(0)
-          .flatMap(() => [
-            random(-(this.width() * 3) / 10, (this.width() * 3) / 10),
-            random(-(this.height() * 3) / 10, (this.height() * 3) / 10),
-          ]),
-      ),
-  );
-
-  colors = computed(
-    () =>
-      new Float32Array(
-        Array(this.count() * 3)
-          .fill(0)
-          .flatMap(() => kolor.random(0.5).rgbanorm().array()),
-      ),
-  );
+  state = {
+    count: signal(10),
+    countMax: 100,
+    countMin: 1,
+  };
 
   initPane() {
     const folder = this.pane!.addFolder({
       title: 'State',
     });
-
-    bindSignal(folder, this.count, {
+    bindSignal(folder, this.state.count, {
       label: 'count',
-      min: this.countMin,
-      max: this.countMax,
+      min: this.state.countMin,
+      max: this.state.countMax,
       step: 1,
     });
   }
 
-  initRender() {
+  async initRender() {
     const context = this.context;
     const device = this.device;
 
@@ -122,40 +92,70 @@ class Renderer extends WebGPURenderer {
       },
     });
 
+    const positions = computed(
+      () => new Float32Array(triangle(this.width(), this.height())),
+    );
     const positionBuf = device.createBuffer({
       label: 'position buffer',
-      size: this.positions().byteLength,
+      size: positions().byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
     effect(() => {
-      device.queue.writeBuffer(positionBuf, 0, this.positions());
+      device.queue.writeBuffer(positionBuf, 0, positions());
     });
 
+    const scalings = computed(
+      () =>
+        new Float32Array(
+          Array(this.state.count())
+            .fill(0)
+            .map(() => random(0.5, 2)),
+        ),
+    );
     const scalingBuf = device.createBuffer({
       label: 'scaling buffer',
-      size: this.countMax * Float32Array.BYTES_PER_ELEMENT,
+      size: this.state.countMax * Float32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     effect(() => {
-      device.queue.writeBuffer(scalingBuf, 0, this.scalings());
+      device.queue.writeBuffer(scalingBuf, 0, scalings());
     });
 
+    const offsets = computed(
+      () =>
+        new Float32Array(
+          Array(this.state.count())
+            .fill(0)
+            .flatMap(() => [
+              random(-(this.width() * 3) / 10, (this.width() * 3) / 10),
+              random(-(this.height() * 3) / 10, (this.height() * 3) / 10),
+            ]),
+        ),
+    );
     const offsetBuf = device.createBuffer({
       label: 'offset buffer',
-      size: this.countMax * 2 * Float32Array.BYTES_PER_ELEMENT,
+      size: this.state.countMax * 2 * Float32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     effect(() => {
-      device.queue.writeBuffer(offsetBuf, 0, this.offsets());
+      device.queue.writeBuffer(offsetBuf, 0, offsets());
     });
 
+    const colors = computed(
+      () =>
+        new Float32Array(
+          Array(this.state.count() * 3)
+            .fill(0)
+            .flatMap(() => kolor.random(0.5).rgbanorm().array()),
+        ),
+    );
     const colorBuf = device.createBuffer({
       label: 'color buffer',
-      size: this.countMax * 3 * 4 * Float32Array.BYTES_PER_ELEMENT,
+      size: this.state.countMax * 3 * 4 * Float32Array.BYTES_PER_ELEMENT,
       usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
     });
     effect(() => {
-      device.queue.writeBuffer(colorBuf, 0, this.colors());
+      device.queue.writeBuffer(colorBuf, 0, colors());
     });
 
     const resolutions = new Float32Array(2);
@@ -219,7 +219,7 @@ class Renderer extends WebGPURenderer {
       pass.setPipeline(pipeline);
       pass.setVertexBuffer(0, positionBuf);
       pass.setBindGroup(0, bindGroup);
-      pass.draw(3, this.count());
+      pass.draw(3, this.state.count());
       pass.end();
 
       const commandBuffer = encoder.finish();

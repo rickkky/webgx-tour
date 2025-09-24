@@ -1,4 +1,5 @@
-import type { FolderApi, BindingParams, Pane } from 'tweakpane';
+import type { BindingParams, FolderApi, Pane } from 'tweakpane';
+
 import { effect } from '@/common/signal';
 
 export function bindSignal<T>(

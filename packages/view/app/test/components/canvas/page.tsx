@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import LayoutCanvas from '@/components/canvas/LayoutCanvas';
+
 import CommonCanvas from '@/components/canvas/CommonCanvas';
+import LayoutCanvas from '@/components/canvas/LayoutCanvas';
 
 export default function CanvasTestPage() {
   const [width, setWidth] = useState(100);

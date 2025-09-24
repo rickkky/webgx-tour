@@ -1,8 +1,10 @@
 'use client';
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import CommonCanvas, { CommonCanvasProps } from './CommonCanvas';
+
 import { CommonRenderer } from '@/common/renderer';
+
+import CommonCanvas, { CommonCanvasProps } from './CommonCanvas';
 
 export type LayoutMode = 'fit' | 'square';
 
